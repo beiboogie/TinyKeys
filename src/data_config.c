@@ -61,7 +61,7 @@ const char* key_display_names[4][16] = {
     {"Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"}
 };
 
-int row_starts[4] = {72, 60, 48, 36}; // Default pitches (C5, C4, C3, C2)
+int row_starts[4] = {33, 38, 43, 48}; // Default pitches: A1 (33), D2 (38), G2 (43), C3 (48)
 int note_map[4][16];
 bool key_state[4][16] = {false};
 int active_notes[4][16]; // To remember which exact MIDI note was triggered for note_off
@@ -92,7 +92,7 @@ int parse_note(const char* note_str) {
     }
     
     int octave = atoi(&note_str[ptr]);
-    if (octave < 1 || octave > 9) octave = 4; // limit range to C1-C9
+    if (octave < -1 || octave > 9) octave = 4; // limit range to C-1-C9
     
     return (octave + 1) * 12 + note_val;
 }

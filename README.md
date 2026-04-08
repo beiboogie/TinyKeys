@@ -2,6 +2,8 @@
 
 A lightweight, low-latency, command-line based Isomorphic Keyboard synthesizer for Windows.
 
+> Check out the [📖 快速上手指南 (QuickStart)](QuickStart.md) to master the controls in 2 minutes!
+
 ## Introduction
 
 An isomorphic keyboard arranges notes in a consistent geometric pattern, making chords and scales maintain the same shape regardless of the musical key. This project maps a standard QWERTY keyboard into a 4-row isomorphic layout, turning your computer keyboard into a playable instrument.
@@ -23,7 +25,7 @@ Each row ascends chromatically from left to right. Polyphony is fully supported.
 
 ### 🎛️ Terminal User Interface (TUI) & Settings Menu
 
-[<img src="https://i.postimg.cc/tJ3hsZk3/TK-Layout.png" alt="TK-Layout.png" style="zoom: 50%;" />](https://postimg.cc/1VzgTzLX)
+[<img src="https://i.postimg.cc/6pQxjZyP/e30b6a7d87297c2ab7feb8dfcf5aa873.png" alt="e30b6a7d87297c2ab7feb8dfcf5aa873.png" style="zoom:33%;" />](https://postimg.cc/XptPXpKK)
 
 The program features an animated terminal UI. You can navigate the `SettingsMenu` using your keyboard's arrow keys:
 
@@ -55,14 +57,6 @@ TinyIsomorphicKeyboard includes three built-in effects, each with its own dynami
 3. **"RE-20" Tape Echo** (Delay)
    - **Toggle**: Press `Left ALT` to activate.
    - **Parameters**: `T` (Time in ms), `M` (Mix %), `FB` (Feedback %), `Sa` (Tape Saturation %), `Sp` & `Dp` (Wow & Flutter LFO Speed/Depth).
-
-既然你已经把 `data_config` 重构成了“数据驱动”的注册表映射模式，而且功能也大大增强，那 README 的写法也得跟上，显得更专业一点。
-
-现在的设置已经不仅仅是改起步音符了，而是一个完整的**预设系统 (Preset System)**。
-
-建议把 README 的这部分重构为以下内容，既保留了简单上手的说明，也列出了高级参数：
-
-------
 
 ### ⚙️ Configuration & Presets
 
