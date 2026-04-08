@@ -53,22 +53,57 @@ TinyIsomorphicKeyboard includes three built-in effects, each with its own dynami
    - **Toggle**: Press `Left SHIFT` to activate.
    - **Parameters**: `Spd` (Speed in Hz), `Dep` (Depth in %), `Bias` (Waveform shape offset).
 3. **"RE-20" Tape Echo** (Delay)
-   - **Toggle**: Press `Left CTRL` to activate.
+   - **Toggle**: Press `Left ALT` to activate.
    - **Parameters**: `T` (Time in ms), `M` (Mix %), `FB` (Feedback %), `Sa` (Tape Saturation %), `Sp` & `Dp` (Wow & Flutter LFO Speed/Depth).
 
-### ⚙️ Configuration
+既然你已经把 `data_config` 重构成了“数据驱动”的注册表映射模式，而且功能也大大增强，那 README 的写法也得跟上，显得更专业一点。
 
-You can customize the default starting notes for each row and the default release time by creating a `config.ini` file in the same directory as the executable:
+现在的设置已经不仅仅是改起步音符了，而是一个完整的**预设系统 (Preset System)**。
 
-```ini
+建议把 README 的这部分重构为以下内容，既保留了简单上手的说明，也列出了高级参数：
+
+------
+
+### ⚙️ Configuration & Presets
+
+The keyboard automatically looks for a `config.ini` in the executable directory to load your favorite settings. Since the latest update, **all synthesis parameters** can be saved and loaded.
+
+- **CTRL + S**: Save current settings to `config.ini` (Instant Preset).
+
+#### 📝 The `config.ini` Format
+
+You can manually edit the file to define your startup state. Here are the most common parameters:
+
+Ini, TOML
+
+```
+# Note Mappings
 row0_start=A1
 row1_start=D2
 row2_start=G2
 row3_start=C3
-release_time_ms=100
+
+# ADSR Envelope
+attack=0.01
+decay=0.25
+sustain=0.8
+release=0.1
+
+# Effects Control
+vb2_speed=1.3
+vb2_depth=16
+trem_speed=3.0
+re20_time=400
+re20_feedback=40
+etc.
 ```
 
-You can also pass these as command-line arguments: `isomorphic_keyboard.exe --config myconfig.ini` or `isomorphic_keyboard.exe row0=D5`
+#### 🚀 Command Line Usage
+
+For power users, you can bypass the default config or override specific rows:
+
+- **Load specific preset**: `isomorphic_keyboard.exe --config chill_lofi.ini`
+- **Quick note override**: `isomorphic_keyboard.exe row0=D5`
 
 ## Deployment & Build Instructions
 

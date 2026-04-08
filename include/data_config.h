@@ -3,6 +3,20 @@
 
 #include <stdbool.h>
 
+typedef enum {
+    CFG_INT,
+    CFG_FLOAT,
+    CFG_FLOAT_MS, // Specialized for ms <-> s conversion (like release_time_ms)
+    CFG_BOOL,
+    CFG_NOTE_STRING
+} ConfigType;
+
+typedef struct {
+    const char* key;
+    void* var_ptr;
+    ConfigType type;
+} ConfigEntry;
+
 // Menu state
 extern int g_semitone;
 extern int g_octave;
@@ -44,6 +58,10 @@ extern int g_delay_mod_dep;
 extern bool g_delay_enabled;
 extern float g_delay_lfo_phase;
 
+// Save Status
+extern int g_save_status; // 0: Normal, 1: Confirming, 2: Saved
+extern unsigned long g_save_status_time; // DWORD
+
 // Key layout definitions
 extern const int num_keys[4];
 extern const int vk_map[4][16];
@@ -55,6 +73,7 @@ extern int active_notes[4][16];
 extern const char* note_names[];
 
 bool load_config(const char* filename);
+bool save_config(const char* filename);
 void init_note_map();
 int parse_note(const char* note_str);
 void get_note_string(int midi_note, char* buf);

@@ -104,6 +104,39 @@ void get_note_string(int midi_note, char* buf) {
     sprintf(buf, "%s%d", note_names[note], octave);
 }
 
+int g_save_status = 0;
+unsigned long g_save_status_time = 0;
+
+ConfigEntry g_config_registry[] = {
+    {"semitone", &g_semitone, CFG_INT},
+    {"octave", &g_octave, CFG_INT},
+    {"show_keyboard", &g_show_keyboard, CFG_BOOL},
+    {"master_volume", &g_master_volume, CFG_FLOAT},
+    {"attack_time", &g_attack, CFG_FLOAT},
+    {"decay_time", &g_decay, CFG_FLOAT},
+    {"sustain_level", &g_sustain, CFG_FLOAT},
+    {"release_time_ms", &g_release_time, CFG_FLOAT_MS},
+    {"vib_speed", &g_vib_speed, CFG_FLOAT},
+    {"vib_depth", &g_vib_depth, CFG_INT},
+    {"vib_mode", &g_vib_mode, CFG_BOOL},
+    {"rise_time", &g_rise_time, CFG_FLOAT},
+    {"trem_speed", &g_trem_speed, CFG_FLOAT},
+    {"trem_depth", &g_trem_depth, CFG_INT},
+    {"trem_bias", &g_trem_bias, CFG_INT},
+    {"delay_time", &g_delay_time, CFG_FLOAT},
+    {"delay_mix", &g_delay_mix, CFG_INT},
+    {"delay_fb", &g_delay_fb, CFG_INT},
+    {"delay_sat", &g_delay_sat, CFG_INT},
+    {"delay_mod_spd", &g_delay_mod_spd, CFG_FLOAT},
+    {"delay_mod_dep", &g_delay_mod_dep, CFG_INT},
+    {"row0_start", &row_starts[0], CFG_NOTE_STRING},
+    {"row1_start", &row_starts[1], CFG_NOTE_STRING},
+    {"row2_start", &row_starts[2], CFG_NOTE_STRING},
+    {"row3_start", &row_starts[3], CFG_NOTE_STRING}
+};
+
+const int g_registry_size = sizeof(g_config_registry) / sizeof(g_config_registry[0]);
+
 // Load config file
 bool load_config(const char* filename) {
     FILE* f = fopen(filename, "r");
@@ -117,13 +150,62 @@ bool load_config(const char* filename) {
             int len = strlen(key);
             while(len > 0 && isspace(key[len-1])) key[--len] = '\0';
             
-            if (strcmp(key, "row0_start") == 0) row_starts[0] = parse_note(val);
-            else if (strcmp(key, "row1_start") == 0) row_starts[1] = parse_note(val);
-            else if (strcmp(key, "row2_start") == 0) row_starts[2] = parse_note(val);
-            else if (strcmp(key, "row3_start") == 0) row_starts[3] = parse_note(val);
-            else if (strcmp(key, "release_time_ms") == 0) g_release_time = atof(val) / 1000.0f;
+            for (int i = 0; i < g_registry_size; i++) {
+                if (_stricmp(key, g_config_registry[i].key) == 0) {
+                    switch (g_config_registry[i].type) {
+                        case CFG_INT:
+                            *(int*)g_config_registry[i].var_ptr = atoi(val);
+                            break;
+                        case CFG_FLOAT:
+                            *(float*)g_config_registry[i].var_ptr = (float)atof(val);
+                            break;
+                        case CFG_FLOAT_MS:
+                            *(float*)g_config_registry[i].var_ptr = (float)atof(val) / 1000.0f;
+                            break;
+                        case CFG_BOOL:
+                            *(bool*)g_config_registry[i].var_ptr = (atoi(val) != 0 || _stricmp(val, "true") == 0);
+                            break;
+                        case CFG_NOTE_STRING:
+                            *(int*)g_config_registry[i].var_ptr = parse_note(val);
+                            break;
+                    }
+                    break;
+                }
+            }
         }
     }
+    fclose(f);
+    return true;
+}
+
+// Save config file
+bool save_config(const char* filename) {
+    FILE* f = fopen(filename, "w");
+    if (!f) return false;
+    
+    for (int i = 0; i < g_registry_size; i++) {
+        switch (g_config_registry[i].type) {
+            case CFG_INT:
+                fprintf(f, "%s=%d\n", g_config_registry[i].key, *(int*)g_config_registry[i].var_ptr);
+                break;
+            case CFG_FLOAT:
+                fprintf(f, "%s=%.3f\n", g_config_registry[i].key, *(float*)g_config_registry[i].var_ptr);
+                break;
+            case CFG_FLOAT_MS:
+                fprintf(f, "%s=%.0f\n", g_config_registry[i].key, *(float*)g_config_registry[i].var_ptr * 1000.0f);
+                break;
+            case CFG_BOOL:
+                fprintf(f, "%s=%d\n", g_config_registry[i].key, *(bool*)g_config_registry[i].var_ptr ? 1 : 0);
+                break;
+            case CFG_NOTE_STRING: {
+                char buf[16];
+                get_note_string(*(int*)g_config_registry[i].var_ptr, buf);
+                fprintf(f, "%s=%s\n", g_config_registry[i].key, buf);
+                break;
+            }
+        }
+    }
+    
     fclose(f);
     return true;
 }

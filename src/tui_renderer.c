@@ -252,9 +252,9 @@ void print_tui() {
         
         ptr += sprintf(ptr, "\033[2K");
         if (g_delay_enabled) {
-            ptr += sprintf(ptr, "\033[92m[CTRL]\033[0m    ");
+            ptr += sprintf(ptr, "\033[92m[ALT]\033[0m     ");
         } else {
-            ptr += sprintf(ptr, "\033[90m[CTRL]\033[0m    ");
+            ptr += sprintf(ptr, "\033[90m[ALT]\033[0m     ");
         }
         if (g_vib_enabled) {
             ptr += sprintf(ptr, "\033[96m[          SPACE          ]\033[0m\n");
@@ -263,7 +263,15 @@ void print_tui() {
         }
     }
     
-    ptr += sprintf(ptr, "\n\n\033[2KPress ESC to exit.\n");
+    ptr += sprintf(ptr, "\n\n\033[2K");
+    if (g_save_status == 1) {
+        ptr += sprintf(ptr, "\033[103;30m [!] SAVE PRESET \033[0m\033[93m Press ENTER to confirm saving to config.ini, or ESC to cancel.\033[0m\n");
+    } else if (g_save_status == 2) {
+        ptr += sprintf(ptr, "\033[102;30m [+] SAVED \033[0m\033[92m Successfully saved to config.ini\033[0m\n");
+    } else {
+        ptr += sprintf(ptr, "\033[90mPress CTRL+S to save preset. Press ESC to exit.\033[0m\n");
+    }
+    
     ptr += sprintf(ptr, "\033[0J"); // Clear all leftover lines below this point to handle resize/toggle
     
     // Output all at once to prevent flickering

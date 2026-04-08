@@ -64,12 +64,48 @@ int main(int argc, char *argv[]) {
     
     while (g_running) {
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
-            g_running = false;
-            break;
+            if (g_save_status == 1) {
+                g_save_status = 0;
+                print_tui();
+                Sleep(200); // debounce
+                continue;
+            } else {
+                g_running = false;
+                break;
+            }
         }
         
+        DWORD current_time = timeGetTime();
+        
+        // Save preset handling
+        bool is_ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+        bool is_s = (GetAsyncKeyState('S') & 0x8000) != 0;
+        static bool s_prev = false;
+
+        if (g_save_status == 1) {
+            if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
+                save_config("config.ini");
+                g_save_status = 2;
+                g_save_status_time = current_time;
+                print_tui();
+                Sleep(200); // debounce
+            }
+        } else {
+            if (is_ctrl && is_s && !s_prev) {
+                g_save_status = 1;
+                print_tui();
+            }
+        }
+        s_prev = is_s;
+        
+        if (g_save_status == 2 && current_time - g_save_status_time > 2000) {
+            g_save_status = 0;
+            print_tui();
+        }
+
         // Menu control
-        bool is_up = (GetAsyncKeyState(VK_UP) & 0x8000) != 0;
+        if (g_save_status == 0 || g_save_status == 2) {
+            bool is_up = (GetAsyncKeyState(VK_UP) & 0x8000) != 0;
         bool is_down_menu = (GetAsyncKeyState(VK_DOWN) & 0x8000) != 0;
         bool is_left = (GetAsyncKeyState(VK_LEFT) & 0x8000) != 0;
         bool is_right = (GetAsyncKeyState(VK_RIGHT) & 0x8000) != 0;
@@ -149,6 +185,7 @@ int main(int argc, char *argv[]) {
             else if (g_menu_selection == 20) { g_delay_mod_dep -= 1; if (g_delay_mod_dep < 0) g_delay_mod_dep = 0; }
             print_tui(); // Force UI update on menu change
         }
+        } // End of Menu control if block
 
         static bool g_space_prev = false;
         bool is_space = (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
@@ -168,12 +205,12 @@ int main(int argc, char *argv[]) {
         }
         g_lshift_prev = is_lshift;
         
-        static bool g_lctrl_prev = false;
-        bool is_lctrl = (GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0;
-        if (is_lctrl && !g_lctrl_prev) {
+        static bool g_lalt_prev = false;
+        bool is_lalt = (GetAsyncKeyState(VK_LMENU) & 0x8000) != 0;
+        if (is_lalt && !g_lalt_prev) {
             g_delay_enabled = !g_delay_enabled;
         }
-        g_lctrl_prev = is_lctrl;
+        g_lalt_prev = is_lalt;
         
         for (int r = 0; r < 4; r++) {
             for (int c = 0; c < num_keys[r]; c++) {
@@ -200,7 +237,6 @@ int main(int argc, char *argv[]) {
             }
         }
         
-        DWORD current_time = timeGetTime();
         if (current_time - last_render_time >= render_interval_ms) {
             // Update Rise
             if (g_vib_enabled) {
