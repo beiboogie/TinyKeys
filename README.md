@@ -1,6 +1,7 @@
 # TinyKeys
 
 A lightweight, low-latency, command-line based Isomorphic Keyboard synthesizer for Windows.
+
 一款适用于 Windows 的轻量级、低延迟、命令行同构键盘合成器。
 
 > Check out the [📖 快速上手指南 (QuickStart)](QuickStart.md) to master the controls in 2 minutes!
