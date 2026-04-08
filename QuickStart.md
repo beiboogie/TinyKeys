@@ -7,8 +7,8 @@ Welcome to **TinyKeys**. This document serves as your synthesizer operation manu
 
 ## 1. Performance Interface / 演奏界面
 
-You only need your QWERTY keyboard to start playing. The layout is designed to mimic an isomorphic keyboard instrument (default setting is like a bass guitar or stringed instrument).
-您只需使用 QWERTY 键盘即可开始演奏。其布局设计旨在模拟异构键盘乐器（如贝斯或弦乐器）。
+You only need your QWERTY keyboard to start playing. The layout is designed to mimic an isomorphic instrument (default setting is like a bass guitar or stringed instrument).
+您只需使用 QWERTY 键盘即可开始演奏。其布局设计旨在模拟同构乐器（如贝斯或弦乐器）。
 
 ```apl
 [1] [2] [3] [4] [5] [6] [7] [8] [9] [0] [-] [=] [BS]
