@@ -11,6 +11,64 @@
 
 bool g_running = true;
 
+static float clampf(float value, float min_value, float max_value) {
+    if (value < min_value) return min_value;
+    if (value > max_value) return max_value;
+    return value;
+}
+
+static bool menu_option_needs_synth_update(MenuOption option) {
+    switch (option) {
+        case MENU_MASTER_VOLUME:
+        case MENU_ATTACK:
+        case MENU_DECAY:
+        case MENU_SUSTAIN:
+        case MENU_RELEASE:
+        case MENU_VIB_SPEED:
+        case MENU_VIB_DEPTH:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static void adjust_menu_option(MenuOption option, int direction) {
+    ConfigEntry* entry = get_menu_config_entry(option);
+    if (!entry) return;
+
+    switch (option) {
+        case MENU_SHOW_KEYBOARD:
+        case MENU_VIB_MODE:
+            *(bool*)entry->var_ptr = !(*(bool*)entry->var_ptr);
+            break;
+        default:
+            switch (entry->type) {
+                case CFG_INT: {
+                    int next_value = *(int*)entry->var_ptr + (int)(entry->step_value * direction);
+                    next_value = (int)clampf((float)next_value, entry->min_value, entry->max_value);
+                    *(int*)entry->var_ptr = next_value;
+                    break;
+                }
+                case CFG_FLOAT:
+                case CFG_FLOAT_MS: {
+                    float next_value = *(float*)entry->var_ptr + entry->step_value * direction;
+                    *(float*)entry->var_ptr = clampf(next_value, entry->min_value, entry->max_value);
+                    break;
+                }
+                case CFG_BOOL:
+                    *(bool*)entry->var_ptr = !(*(bool*)entry->var_ptr);
+                    break;
+                case CFG_NOTE_STRING:
+                    break;
+            }
+            break;
+    }
+
+    if (menu_option_needs_synth_update(option)) {
+        update_synth_params();
+    }
+}
+
 int main(int argc, char *argv[]) {
     // Enable ANSI escape codes on Windows and disable console echo/input
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -106,85 +164,70 @@ int main(int argc, char *argv[]) {
         // Menu control
         if (g_save_status == 0 || g_save_status == 2) {
             bool is_up = (GetAsyncKeyState(VK_UP) & 0x8000) != 0;
-        bool is_down_menu = (GetAsyncKeyState(VK_DOWN) & 0x8000) != 0;
-        bool is_left = (GetAsyncKeyState(VK_LEFT) & 0x8000) != 0;
-        bool is_right = (GetAsyncKeyState(VK_RIGHT) & 0x8000) != 0;
+            bool is_down = (GetAsyncKeyState(VK_DOWN) & 0x8000) != 0;
+            bool is_left = (GetAsyncKeyState(VK_LEFT) & 0x8000) != 0;
+            bool is_right = (GetAsyncKeyState(VK_RIGHT) & 0x8000) != 0;
+            bool is_ctrl_nav = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
 
-        static int left_held = 0;
-        static int right_held = 0;
-        if (is_left) left_held++; else left_held = 0;
-        if (is_right) right_held++; else right_held = 0;
+            static int left_held = 0;
+            static int right_held = 0;
+            static int up_held = 0;
+            static int down_held = 0;
 
-        bool trigger_left = (left_held == 1) || (left_held > 400 && left_held % 30 == 0);
-        bool trigger_right = (right_held == 1) || (right_held > 400 && right_held % 30 == 0);
+            if (is_left) left_held++; else left_held = 0;
+            if (is_right) right_held++; else right_held = 0;
+            if (is_up) up_held++; else up_held = 0;
+            if (is_down) down_held++; else down_held = 0;
 
-        if (trigger_left) {
-            g_menu_selection--;
-            if (g_menu_selection < 0) g_menu_selection = 20;
-            print_tui(); // Force UI update on selection change
-        }
-        if (trigger_right) {
-            g_menu_selection++;
-            if (g_menu_selection > 20) g_menu_selection = 0;
-            print_tui(); // Force UI update on selection change
-        }
+            bool trigger_left = (left_held == 1) || (left_held > 400 && left_held % 30 == 0);
+            bool trigger_right = (right_held == 1) || (right_held > 400 && right_held % 30 == 0);
+            bool trigger_up = (up_held == 1) || (up_held > 400 && up_held % 30 == 0);
+            bool trigger_down = (down_held == 1) || (down_held > 400 && down_held % 30 == 0);
+            bool menu_changed = false;
 
-        static int up_held = 0;
-        static int down_held = 0;
-        if (is_up) up_held++; else up_held = 0;
-        if (is_down_menu) down_held++; else down_held = 0;
+            if (trigger_left) {
+                g_current_col--;
+                if (g_current_col < 0) {
+                    g_current_col = g_menu_layout[g_current_row].item_count - 1;
+                }
+                menu_changed = true;
+            }
+            if (trigger_right) {
+                g_current_col++;
+                if (g_current_col >= g_menu_layout[g_current_row].item_count) {
+                    g_current_col = 0;
+                }
+                menu_changed = true;
+            }
 
-        bool trigger_up = (up_held == 1) || (up_held > 400 && up_held % 30 == 0);
-        bool trigger_down = (down_held == 1) || (down_held > 400 && down_held % 30 == 0);
+            if (trigger_up) {
+                if (is_ctrl_nav) {
+                    adjust_menu_option(get_current_menu_option(), 1);
+                } else {
+                    g_current_row--;
+                    if (g_current_row < 0) g_current_row = g_menu_layout_size - 1;
+                    if (g_current_col >= g_menu_layout[g_current_row].item_count) {
+                        g_current_col = g_menu_layout[g_current_row].item_count - 1;
+                    }
+                }
+                menu_changed = true;
+            }
+            if (trigger_down) {
+                if (is_ctrl_nav) {
+                    adjust_menu_option(get_current_menu_option(), -1);
+                } else {
+                    g_current_row++;
+                    if (g_current_row >= g_menu_layout_size) g_current_row = 0;
+                    if (g_current_col >= g_menu_layout[g_current_row].item_count) {
+                        g_current_col = g_menu_layout[g_current_row].item_count - 1;
+                    }
+                }
+                menu_changed = true;
+            }
 
-        if (trigger_up) {
-            if (g_menu_selection == 0) g_semitone++;
-            else if (g_menu_selection == 1) g_octave++;
-            else if (g_menu_selection == 2) g_show_keyboard = !g_show_keyboard;
-            else if (g_menu_selection == 3) { g_master_volume += 0.05f; if (g_master_volume > 2.0f) g_master_volume = 2.0f; update_synth_params(); }
-            else if (g_menu_selection == 4) { g_attack += 0.01f; if (g_attack > 2.0f) g_attack = 2.0f; update_synth_params(); }
-            else if (g_menu_selection == 5) { g_decay += 0.25f; if (g_decay > 10.0f) g_decay = 10.0f; update_synth_params(); }
-            else if (g_menu_selection == 6) { g_sustain += 0.05f; if (g_sustain > 1.0f) g_sustain = 1.0f; update_synth_params(); }
-            else if (g_menu_selection == 7) { g_release_time += 0.25f; if (g_release_time > 5.0f) g_release_time = 5.0f; update_synth_params(); }
-            else if (g_menu_selection == 8) { g_vib_speed += 0.1f; if (g_vib_speed > 15.0f) g_vib_speed = 15.0f; update_synth_params(); }
-            else if (g_menu_selection == 9) { g_vib_depth += 2; if (g_vib_depth > 100) g_vib_depth = 100; update_synth_params(); }
-            else if (g_menu_selection == 10) { g_vib_mode = !g_vib_mode; }
-            else if (g_menu_selection == 11) { g_rise_time += 0.5f; if (g_rise_time > 5.0f) g_rise_time = 5.0f; }
-            else if (g_menu_selection == 12) { g_trem_speed += 0.1f; if (g_trem_speed > 15.0f) g_trem_speed = 15.0f; }
-            else if (g_menu_selection == 13) { g_trem_depth += 2; if (g_trem_depth > 100) g_trem_depth = 100; }
-            else if (g_menu_selection == 14) { g_trem_bias += 5; if (g_trem_bias > 100) g_trem_bias = 100; }
-            else if (g_menu_selection == 15) { g_delay_time += 0.025f; if (g_delay_time > 2.0f) g_delay_time = 2.0f; }
-            else if (g_menu_selection == 16) { g_delay_mix += 10; if (g_delay_mix > 100) g_delay_mix = 100; }
-            else if (g_menu_selection == 17) { g_delay_fb += 10; if (g_delay_fb > 100) g_delay_fb = 100; }
-            else if (g_menu_selection == 18) { g_delay_sat += 10; if (g_delay_sat > 100) g_delay_sat = 100; }
-            else if (g_menu_selection == 19) { g_delay_mod_spd += 0.1f; if (g_delay_mod_spd > 15.0f) g_delay_mod_spd = 15.0f; }
-            else if (g_menu_selection == 20) { g_delay_mod_dep += 1; if (g_delay_mod_dep > 100) g_delay_mod_dep = 100; }
-            print_tui(); // Force UI update on menu change
-        }
-        if (trigger_down) {
-            if (g_menu_selection == 0) g_semitone--;
-            else if (g_menu_selection == 1) g_octave--;
-            else if (g_menu_selection == 2) g_show_keyboard = !g_show_keyboard;
-            else if (g_menu_selection == 3) { g_master_volume -= 0.05f; if (g_master_volume < 0.0f) g_master_volume = 0.0f; update_synth_params(); }
-            else if (g_menu_selection == 4) { g_attack -= 0.01f; if (g_attack < 0.0f) g_attack = 0.0f; update_synth_params(); }
-            else if (g_menu_selection == 5) { g_decay -= 0.25f; if (g_decay < 0.0f) g_decay = 0.0f; update_synth_params(); }
-            else if (g_menu_selection == 6) { g_sustain -= 0.05f; if (g_sustain < 0.0f) g_sustain = 0.0f; update_synth_params(); }
-            else if (g_menu_selection == 7) { g_release_time -= 0.25f; if (g_release_time < 0.0f) g_release_time = 0.0f; update_synth_params(); }
-            else if (g_menu_selection == 8) { g_vib_speed -= 0.1f; if (g_vib_speed < 0.0f) g_vib_speed = 0.0f; update_synth_params(); }
-            else if (g_menu_selection == 9) { g_vib_depth -= 2; if (g_vib_depth < 0) g_vib_depth = 0; update_synth_params(); }
-            else if (g_menu_selection == 10) { g_vib_mode = !g_vib_mode; }
-            else if (g_menu_selection == 11) { g_rise_time -= 0.5f; if (g_rise_time < 0.0f) g_rise_time = 0.0f; }
-            else if (g_menu_selection == 12) { g_trem_speed -= 0.1f; if (g_trem_speed < 0.0f) g_trem_speed = 0.0f; }
-            else if (g_menu_selection == 13) { g_trem_depth -= 2; if (g_trem_depth < 0) g_trem_depth = 0; }
-            else if (g_menu_selection == 14) { g_trem_bias -= 5; if (g_trem_bias < 0) g_trem_bias = 0; }
-            else if (g_menu_selection == 15) { g_delay_time -= 0.025f; if (g_delay_time < 0.1f) g_delay_time = 0.1f; }
-            else if (g_menu_selection == 16) { g_delay_mix -= 10; if (g_delay_mix < 0) g_delay_mix = 0; }
-            else if (g_menu_selection == 17) { g_delay_fb -= 10; if (g_delay_fb < 0) g_delay_fb = 0; }
-            else if (g_menu_selection == 18) { g_delay_sat -= 10; if (g_delay_sat < 0) g_delay_sat = 0; }
-            else if (g_menu_selection == 19) { g_delay_mod_spd -= 0.1f; if (g_delay_mod_spd < 0.0f) g_delay_mod_spd = 0.0f; }
-            else if (g_menu_selection == 20) { g_delay_mod_dep -= 1; if (g_delay_mod_dep < 0) g_delay_mod_dep = 0; }
-            print_tui(); // Force UI update on menu change
-        }
+            if (menu_changed) {
+                print_tui();
+            }
         } // End of Menu control if block
 
         static bool g_space_prev = false;

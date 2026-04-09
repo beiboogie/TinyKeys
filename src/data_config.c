@@ -9,7 +9,8 @@
 int g_semitone = 0;
 int g_octave = 0;
 bool g_show_keyboard = true;
-int g_menu_selection = 0; // 0: Semitone, 1: Octave, 2: Show Keyboard, 3: Vol, 4: A, 5: D, 6: S, 7: R, 8: Spd, 9: Dep, 10: Mode, 11: Rise, 12: TremSpd, 13: TremDep, 14: TremBias, 15: EchoTime, 16: EchoMix, 17: EchoFB, 18: EchoSat, 19: EchoSpd, 20: EchoDep
+int g_current_row = 0;
+int g_current_col = 0;
 
 // ADSR Envelope
 float g_attack = 0.0f;
@@ -108,34 +109,80 @@ int g_save_status = 0;
 unsigned long g_save_status_time = 0;
 
 ConfigEntry g_config_registry[] = {
-    {"semitone", &g_semitone, CFG_INT},
-    {"octave", &g_octave, CFG_INT},
-    {"show_keyboard", &g_show_keyboard, CFG_BOOL},
-    {"master_volume", &g_master_volume, CFG_FLOAT},
-    {"attack_time", &g_attack, CFG_FLOAT},
-    {"decay_time", &g_decay, CFG_FLOAT},
-    {"sustain_level", &g_sustain, CFG_FLOAT},
-    {"release_time_ms", &g_release_time, CFG_FLOAT_MS},
-    {"vib_speed", &g_vib_speed, CFG_FLOAT},
-    {"vib_depth", &g_vib_depth, CFG_INT},
-    {"vib_mode", &g_vib_mode, CFG_BOOL},
-    {"rise_time", &g_rise_time, CFG_FLOAT},
-    {"trem_speed", &g_trem_speed, CFG_FLOAT},
-    {"trem_depth", &g_trem_depth, CFG_INT},
-    {"trem_bias", &g_trem_bias, CFG_INT},
-    {"delay_time", &g_delay_time, CFG_FLOAT},
-    {"delay_mix", &g_delay_mix, CFG_INT},
-    {"delay_fb", &g_delay_fb, CFG_INT},
-    {"delay_sat", &g_delay_sat, CFG_INT},
-    {"delay_mod_spd", &g_delay_mod_spd, CFG_FLOAT},
-    {"delay_mod_dep", &g_delay_mod_dep, CFG_INT},
-    {"row0_start", &row_starts[0], CFG_NOTE_STRING},
-    {"row1_start", &row_starts[1], CFG_NOTE_STRING},
-    {"row2_start", &row_starts[2], CFG_NOTE_STRING},
-    {"row3_start", &row_starts[3], CFG_NOTE_STRING}
+    {"semitone", &g_semitone, CFG_INT, MENU_SEMITONE, -127.0f, 127.0f, 1.0f},
+    {"octave", &g_octave, CFG_INT, MENU_OCTAVE, -10.0f, 10.0f, 1.0f},
+    {"show_keyboard", &g_show_keyboard, CFG_BOOL, MENU_SHOW_KEYBOARD, 0.0f, 1.0f, 1.0f},
+    {"master_volume", &g_master_volume, CFG_FLOAT, MENU_MASTER_VOLUME, 0.0f, 2.0f, 0.05f},
+    {"attack_time", &g_attack, CFG_FLOAT, MENU_ATTACK, 0.0f, 2.0f, 0.01f},
+    {"decay_time", &g_decay, CFG_FLOAT, MENU_DECAY, 0.0f, 10.0f, 0.25f},
+    {"sustain_level", &g_sustain, CFG_FLOAT, MENU_SUSTAIN, 0.0f, 1.0f, 0.05f},
+    {"release_time_ms", &g_release_time, CFG_FLOAT_MS, MENU_RELEASE, 0.0f, 5.0f, 0.25f},
+    {"vib_speed", &g_vib_speed, CFG_FLOAT, MENU_VIB_SPEED, 0.0f, 15.0f, 0.1f},
+    {"vib_depth", &g_vib_depth, CFG_INT, MENU_VIB_DEPTH, 0.0f, 100.0f, 2.0f},
+    {"vib_mode", &g_vib_mode, CFG_BOOL, MENU_VIB_MODE, 0.0f, 1.0f, 1.0f},
+    {"rise_time", &g_rise_time, CFG_FLOAT, MENU_RISE_TIME, 0.0f, 5.0f, 0.5f},
+    {"trem_speed", &g_trem_speed, CFG_FLOAT, MENU_TREM_SPEED, 0.0f, 15.0f, 0.1f},
+    {"trem_depth", &g_trem_depth, CFG_INT, MENU_TREM_DEPTH, 0.0f, 100.0f, 2.0f},
+    {"trem_bias", &g_trem_bias, CFG_INT, MENU_TREM_BIAS, 0.0f, 100.0f, 5.0f},
+    {"delay_time", &g_delay_time, CFG_FLOAT, MENU_DELAY_TIME, 0.1f, 2.0f, 0.025f},
+    {"delay_mix", &g_delay_mix, CFG_INT, MENU_DELAY_MIX, 0.0f, 100.0f, 10.0f},
+    {"delay_fb", &g_delay_fb, CFG_INT, MENU_DELAY_FB, 0.0f, 100.0f, 10.0f},
+    {"delay_sat", &g_delay_sat, CFG_INT, MENU_DELAY_SAT, 0.0f, 100.0f, 10.0f},
+    {"delay_mod_spd", &g_delay_mod_spd, CFG_FLOAT, MENU_DELAY_MOD_SPEED, 0.0f, 15.0f, 0.1f},
+    {"delay_mod_dep", &g_delay_mod_dep, CFG_INT, MENU_DELAY_MOD_DEPTH, 0.0f, 100.0f, 1.0f},
+    {"row0_start", &row_starts[0], CFG_NOTE_STRING, MENU_OPTION_NONE, 0.0f, 0.0f, 0.0f},
+    {"row1_start", &row_starts[1], CFG_NOTE_STRING, MENU_OPTION_NONE, 0.0f, 0.0f, 0.0f},
+    {"row2_start", &row_starts[2], CFG_NOTE_STRING, MENU_OPTION_NONE, 0.0f, 0.0f, 0.0f},
+    {"row3_start", &row_starts[3], CFG_NOTE_STRING, MENU_OPTION_NONE, 0.0f, 0.0f, 0.0f}
 };
 
 const int g_registry_size = sizeof(g_config_registry) / sizeof(g_config_registry[0]);
+
+static const MenuOption g_global_menu_items[] = {
+    MENU_SEMITONE, MENU_OCTAVE, MENU_SHOW_KEYBOARD, MENU_MASTER_VOLUME
+};
+
+static const MenuOption g_adsr_menu_items[] = {
+    MENU_ATTACK, MENU_DECAY, MENU_SUSTAIN, MENU_RELEASE
+};
+
+static const MenuOption g_vib_menu_items[] = {
+    MENU_VIB_SPEED, MENU_VIB_DEPTH, MENU_VIB_MODE, MENU_RISE_TIME
+};
+
+static const MenuOption g_trem_menu_items[] = {
+    MENU_TREM_SPEED, MENU_TREM_DEPTH, MENU_TREM_BIAS
+};
+
+static const MenuOption g_echo_menu_items[] = {
+    MENU_DELAY_TIME, MENU_DELAY_MIX, MENU_DELAY_FB,
+    MENU_DELAY_SAT, MENU_DELAY_MOD_SPEED, MENU_DELAY_MOD_DEPTH
+};
+
+const MenuRow g_menu_layout[] = {
+    {"Global", g_global_menu_items, sizeof(g_global_menu_items) / sizeof(g_global_menu_items[0])},
+    {"ADSR", g_adsr_menu_items, sizeof(g_adsr_menu_items) / sizeof(g_adsr_menu_items[0])},
+    {"\"VB-2\":", g_vib_menu_items, sizeof(g_vib_menu_items) / sizeof(g_vib_menu_items[0])},
+    {"\"Trelicopter\":", g_trem_menu_items, sizeof(g_trem_menu_items) / sizeof(g_trem_menu_items[0])},
+    {"\"RE-20\":", g_echo_menu_items, sizeof(g_echo_menu_items) / sizeof(g_echo_menu_items[0])}
+};
+
+const int g_menu_layout_size = sizeof(g_menu_layout) / sizeof(g_menu_layout[0]);
+
+ConfigEntry* get_menu_config_entry(MenuOption option) {
+    for (int i = 0; i < g_registry_size; i++) {
+        if (g_config_registry[i].menu_option == option) {
+            return &g_config_registry[i];
+        }
+    }
+    return NULL;
+}
+
+MenuOption get_current_menu_option(void) {
+    if (g_current_row < 0 || g_current_row >= g_menu_layout_size) return MENU_OPTION_NONE;
+    if (g_current_col < 0 || g_current_col >= g_menu_layout[g_current_row].item_count) return MENU_OPTION_NONE;
+    return g_menu_layout[g_current_row].item_enums[g_current_col];
+}
 
 // Load config file
 bool load_config(const char* filename) {

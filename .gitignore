@@ -21,6 +21,7 @@ bin/
 
 # Temporary and AI memory files
 memory.md
+AImemory.md
 docs/
 
 # CMake specific

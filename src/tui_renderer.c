@@ -2,7 +2,161 @@
 #include "../include/data_config.h"
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include <windows.h>
+
+static bool is_selected(MenuOption option) {
+    return get_current_menu_option() == option;
+}
+
+static void append_plain_option(char** ptr, const char* label, const char* value) {
+    *ptr += sprintf(*ptr, "%s%s", label, value);
+}
+
+static void append_reversed_option(char** ptr, const char* label_bg, const char* label, const char* value) {
+    *ptr += sprintf(*ptr, "%s\033[30m%s\033[47;30m%s\033[0m", label_bg, label, value);
+}
+
+static void append_neutral_option(char** ptr, MenuOption option, const char* text) {
+    if (is_selected(option)) {
+        *ptr += sprintf(*ptr, "\033[7m%s\033[0m", text);
+    } else {
+        *ptr += sprintf(*ptr, "%s", text);
+    }
+}
+
+static void append_colored_option(char** ptr, MenuOption option, const char* color_fg, const char* color_bg, const char* label, const char* value) {
+    if (is_selected(option)) {
+        append_reversed_option(ptr, color_bg, label, value);
+    } else {
+        *ptr += sprintf(*ptr, "%s%s\033[37m%s\033[0m", color_fg, label, value);
+    }
+}
+
+static void append_menu_option(char** ptr, MenuOption option) {
+    char value_buf[32];
+
+    switch (option) {
+        case MENU_SEMITONE:
+            sprintf(value_buf, "%+d", g_semitone);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Semitone: ", value_buf);
+            } else {
+                append_plain_option(ptr, "Semitone: ", value_buf);
+            }
+            break;
+        case MENU_OCTAVE:
+            sprintf(value_buf, "%+d", g_octave);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Octave: ", value_buf);
+            } else {
+                append_plain_option(ptr, "Octave: ", value_buf);
+            }
+            break;
+        case MENU_SHOW_KEYBOARD:
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "ShowKbd: ", g_show_keyboard ? "ON " : "OFF");
+            } else {
+                append_plain_option(ptr, "ShowKbd: ", g_show_keyboard ? "ON " : "OFF");
+            }
+            break;
+        case MENU_MASTER_VOLUME:
+            sprintf(value_buf, "%d%%", (int)(g_master_volume * 100 + 0.5f));
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Master: ", value_buf);
+            } else {
+                append_plain_option(ptr, "Master: ", value_buf);
+            }
+            break;
+        case MENU_ATTACK:
+            sprintf(value_buf, "%.2fs", g_attack);
+            append_neutral_option(ptr, option, "");
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "A:", value_buf);
+            } else {
+                append_plain_option(ptr, "A:", value_buf);
+            }
+            break;
+        case MENU_DECAY:
+            sprintf(value_buf, "%.2fs", g_decay);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "D:", value_buf);
+            } else {
+                append_plain_option(ptr, "D:", value_buf);
+            }
+            break;
+        case MENU_SUSTAIN:
+            sprintf(value_buf, "%.2f", g_sustain);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "S:", value_buf);
+            } else {
+                append_plain_option(ptr, "S:", value_buf);
+            }
+            break;
+        case MENU_RELEASE:
+            sprintf(value_buf, "%.2fs", g_release_time);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "R:", value_buf);
+            } else {
+                append_plain_option(ptr, "R:", value_buf);
+            }
+            break;
+        case MENU_VIB_SPEED:
+            sprintf(value_buf, "%.1fHz", g_vib_speed);
+            append_colored_option(ptr, option, "\033[96m", "\033[106m", "Spd:", value_buf);
+            break;
+        case MENU_VIB_DEPTH:
+            sprintf(value_buf, "%dc", g_vib_depth);
+            append_colored_option(ptr, option, "\033[96m", "\033[106m", "Dep:", value_buf);
+            break;
+        case MENU_VIB_MODE:
+            append_colored_option(ptr, option, "\033[96m", "\033[106m", "Mode:", !g_vib_mode ? "Unlatch" : "Latch  ");
+            break;
+        case MENU_RISE_TIME:
+            sprintf(value_buf, "%.1fs", g_rise_time);
+            append_colored_option(ptr, option, "\033[96m", "\033[106m", "Rise:", value_buf);
+            break;
+        case MENU_TREM_SPEED:
+            sprintf(value_buf, "%.1fHz", g_trem_speed);
+            append_colored_option(ptr, option, "\033[93m", "\033[103m", "Spd:", value_buf);
+            break;
+        case MENU_TREM_DEPTH:
+            sprintf(value_buf, "%dc", g_trem_depth);
+            append_colored_option(ptr, option, "\033[93m", "\033[103m", "Dep:", value_buf);
+            break;
+        case MENU_TREM_BIAS:
+            sprintf(value_buf, "%d%%", g_trem_bias);
+            append_colored_option(ptr, option, "\033[93m", "\033[103m", "Bias:", value_buf);
+            break;
+        case MENU_DELAY_TIME:
+            sprintf(value_buf, "%dms", (int)(g_delay_time * 1000));
+            append_colored_option(ptr, option, "\033[92m", "\033[102m", "T:", value_buf);
+            break;
+        case MENU_DELAY_MIX:
+            sprintf(value_buf, "%d%%", g_delay_mix);
+            append_colored_option(ptr, option, "\033[92m", "\033[102m", "M:", value_buf);
+            break;
+        case MENU_DELAY_FB:
+            sprintf(value_buf, "%d%%", g_delay_fb);
+            append_colored_option(ptr, option, "\033[92m", "\033[102m", "FB:", value_buf);
+            break;
+        case MENU_DELAY_SAT:
+            sprintf(value_buf, "%d%%", g_delay_sat);
+            append_colored_option(ptr, option, "\033[92m", "\033[102m", "Sa:", value_buf);
+            break;
+        case MENU_DELAY_MOD_SPEED:
+            sprintf(value_buf, "%.1fHz", g_delay_mod_spd);
+            append_colored_option(ptr, option, "\033[92m", "\033[102m", "Sp:", value_buf);
+            break;
+        case MENU_DELAY_MOD_DEPTH:
+            sprintf(value_buf, "%dc", g_delay_mod_dep);
+            append_colored_option(ptr, option, "\033[92m", "\033[102m", "Dp:", value_buf);
+            break;
+        case MENU_OPTION_COUNT:
+        case MENU_OPTION_NONE:
+            break;
+    }
+}
 
 // Update TUI display
 void print_tui() {
@@ -30,140 +184,28 @@ void print_tui() {
         ptr += sprintf(ptr, "\033[0m\n");
     }
     
-    ptr += sprintf(ptr, "\033[2K  ------------------SettingsMenu------------------\n\033[2K");
-    if (g_menu_selection == 0) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "Semitone: %+d", g_semitone);
-    if (g_menu_selection == 0) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "  ");
-    
-    if (g_menu_selection == 1) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "Octave: %+d", g_octave);
-    if (g_menu_selection == 1) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "  ");
+    ptr += sprintf(ptr, "\033[2K  ------------------SettingsMenu------------------\n");
+    for (int row = 0; row < g_menu_layout_size; row++) {
+        const MenuRow* menu_row = &g_menu_layout[row];
+        ptr += sprintf(ptr, "\033[2K");
+        if (strcmp(menu_row->row_label, "\"VB-2\":") == 0) {
+            ptr += sprintf(ptr, "\033[96m%s\033[0m ", menu_row->row_label);
+        } else if (strcmp(menu_row->row_label, "\"Trelicopter\":") == 0) {
+            ptr += sprintf(ptr, "\033[93m%s\033[0m ", menu_row->row_label);
+        } else if (strcmp(menu_row->row_label, "\"RE-20\":") == 0) {
+            ptr += sprintf(ptr, "\033[92m%s\033[0m ", menu_row->row_label);
+        } else {
+            ptr += sprintf(ptr, "%s: ", menu_row->row_label);
+        }
 
-    if (g_menu_selection == 2) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "ShowKbd: %s", g_show_keyboard ? "ON " : "OFF");
-    if (g_menu_selection == 2) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "  ");
-
-    if (g_menu_selection == 3) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "Master: %d%%", (int)(g_master_volume * 100 + 0.5f));
-    if (g_menu_selection == 3) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "\n\033[2K");
-
-    if (g_menu_selection == 4) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "A:%.2fs", g_attack);
-    if (g_menu_selection == 4) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "       ");
-
-    if (g_menu_selection == 5) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "D:%.2fs", g_decay);
-    if (g_menu_selection == 5) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "     ");
-
-    if (g_menu_selection == 6) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "S:%.2f", g_sustain);
-    if (g_menu_selection == 6) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "       ");
-
-    if (g_menu_selection == 7) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "R:%.2fs", g_release_time);
-    if (g_menu_selection == 7) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "\n\033[2K");
-    
-    ptr += sprintf(ptr, "\033[96m\"VB-2\":\033[0m ");
-    if (g_menu_selection == 8) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[96mSpd:\033[0m");
-    if (g_menu_selection == 8) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%.1fHz", g_vib_speed);
-    if (g_menu_selection == 8) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, " ");
-
-    if (g_menu_selection == 9) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[96mDep:\033[0m");
-    if (g_menu_selection == 9) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%dc", g_vib_depth);
-    if (g_menu_selection == 9) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "   ");
-
-    if (g_menu_selection == 10) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[96mMode:\033[0m");
-    if (g_menu_selection == 10) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%s", !g_vib_mode ? "Unlatch" : "Latch  ");
-    if (g_menu_selection == 10) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, " ");
-
-    if (g_menu_selection == 11) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[96mRise:\033[0m");
-    if (g_menu_selection == 11) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%.1fs", g_rise_time);
-    if (g_menu_selection == 11) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "\n\033[2K");
-
-    ptr += sprintf(ptr, "\033[93m\"Trelicopter\":\033[0m    ");
-    if (g_menu_selection == 12) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[93mSpd:\033[0m");
-    if (g_menu_selection == 12) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%.1fHz", g_trem_speed);
-    if (g_menu_selection == 12) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, " ");
-
-    if (g_menu_selection == 13) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[93mDep:\033[0m");
-    if (g_menu_selection == 13) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%dc", g_trem_depth);
-    if (g_menu_selection == 13) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "      ");
-
-    if (g_menu_selection == 14) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[93mBias:\033[0m");
-    if (g_menu_selection == 14) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%d%%", g_trem_bias);
-    if (g_menu_selection == 14) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "\n\033[2K");
-    
-    ptr += sprintf(ptr, "\033[92m\"RE-20\":\033[0m ");
-    if (g_menu_selection == 15) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[92mT:\033[0m");
-    if (g_menu_selection == 15) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%dms", (int)(g_delay_time * 1000));
-    if (g_menu_selection == 15) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, " ");
-
-    if (g_menu_selection == 16) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[92mM:\033[0m");
-    if (g_menu_selection == 16) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%d%%", g_delay_mix);
-    if (g_menu_selection == 16) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, " ");
-
-    if (g_menu_selection == 17) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[92mFB:\033[0m");
-    if (g_menu_selection == 17) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%d%%", g_delay_fb);
-    if (g_menu_selection == 17) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, " ");
-
-    if (g_menu_selection == 18) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[92mSa:\033[0m");
-    if (g_menu_selection == 18) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%d%%", g_delay_sat);
-    if (g_menu_selection == 18) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, " ");
-    
-    if (g_menu_selection == 19) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[92mSp:\033[0m");
-    if (g_menu_selection == 19) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%.1fHz", g_delay_mod_spd);
-    if (g_menu_selection == 19) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, " ");
-
-    if (g_menu_selection == 20) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "\033[92mDp:\033[0m");
-    if (g_menu_selection == 20) ptr += sprintf(ptr, "\033[7m");
-    ptr += sprintf(ptr, "%dc", g_delay_mod_dep);
-    if (g_menu_selection == 20) ptr += sprintf(ptr, "\033[0m");
-    ptr += sprintf(ptr, "\n\033[2K");
+        for (int col = 0; col < menu_row->item_count; col++) {
+            append_menu_option(&ptr, menu_row->item_enums[col]);
+            if (col < menu_row->item_count - 1) {
+                ptr += sprintf(ptr, "  ");
+            }
+        }
+        ptr += sprintf(ptr, "\n");
+    }
 
     // Visualizers
     // Vibrato Visualizer
@@ -269,7 +311,7 @@ void print_tui() {
     } else if (g_save_status == 2) {
         ptr += sprintf(ptr, "\033[102;30m [+] SAVED \033[0m\033[92m Successfully saved to config.ini\033[0m\n");
     } else {
-        ptr += sprintf(ptr, "\033[90mPress CTRL+S to save preset. Press ESC to exit.\033[0m\n");
+        ptr += sprintf(ptr, "\033[90mArrows move selection. CTRL+UP/DOWN adjusts. CTRL+S saves. ESC exits.\033[0m\n");
     }
     
     ptr += sprintf(ptr, "\033[0J"); // Clear all leftover lines below this point to handle resize/toggle

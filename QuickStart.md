@@ -20,12 +20,13 @@ You only need your QWERTY keyboard to start playing. The layout is designed to m
 
 ### Control Keys / 控制键说明
 
+*   `[↑][↓][←][→]`: **Select Parameter / 菜单导航**
+*   `[CTRL] + [↑]/[↓]`: **Adjust Value / 调节参数值**
+*   `[CTRL] + [S]`: **Save Preset / 保存预设**
 *   `[L-SHIFT]`: **Tremolo Switch / Tremolo音量颤音开关**
 *   `[L-ALT]`: **Tape Echo Switch / 磁带延迟开关**
 *   `[SPACE]`: **Vibrato Switch / Vibrato音高颤音开关**
-*   `[←][→]`: **Select Parameter / 选择菜单参数**
-*   `[↑][↓]`: **Adjust Value / 调节参数值**
-*   `[CTRL] + [S]`: **Save Preset / 保存当前所有参数为预设**
+
 
 ### Note Layout / 音符排列规律
 
@@ -41,10 +42,12 @@ All other keys are dedicated to performance. The default mapping follows a stric
 
 ---
 
-## 2. Settings Menu / 合成器参数设置
+## 2. Settings Menu  /  合成器参数设置
 
 The Settings Menu allows you to sculpt your tone and adjust global behaviors. Use the arrow keys to navigate and modify these values.
 设置菜单允许您塑造音色并调整全局行为。使用方向键导航并修改这些数值。
+
+
 
 ### Global & Master / 全局与主控参数
 
@@ -92,8 +95,8 @@ Simulates amplitude (volume) modulation. Activated by the `[L-SHIFT]` key.
 
 ### "RE-20" Tape Echo / 磁带延迟效果器
 
-A warm, analog-style delay with saturation and wow/flutter. Activated by the `[L-ALT]` key.
-温暖的模拟磁带风格延迟，带有饱和度与磁带抖动效果。通过 `[L-ALT]` 键激活。
+An analog-tape-style delay with saturation and wow/flutter. Activated by the `[L-ALT]` key.
+模拟磁带风格延迟，带有饱和度与磁带抖动效果。通过 `[L-ALT]` 键激活。
 
 | Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
 | :--- | :--- | :--- |
@@ -103,3 +106,8 @@ A warm, analog-style delay with saturation and wow/flutter. Activated by the `[L
 | `Sa` (Saturation)| Tape saturation/distortion on the delayed signal. | 磁带饱和度（为回声添加温暖的模拟失真） |
 | `Sp` (LFO Speed) | Speed of the tape mechanism modulation (Wow & Flutter). | 磁带抖动速度（LFO频率） |
 | `Dp` (LFO Depth) | Intensity of the tape mechanism modulation. | 磁带抖动深度（模拟电机不稳定的音高偏移） |
+
+## 3. Preset Function / 预设功能
+
+Press `[CTRL] + [S]` to save your current settings to `config.ini` in the root directory. These values will be loaded automatically on startup.
+您可以按下`[CTRL] + [S]`来保存预设，预设文件是软件根目录的`config.ini`。在软件启动时会自动读取其中的数值。

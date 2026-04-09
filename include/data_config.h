@@ -11,17 +11,54 @@ typedef enum {
     CFG_NOTE_STRING
 } ConfigType;
 
+typedef enum {
+    MENU_SEMITONE = 0,
+    MENU_OCTAVE,
+    MENU_SHOW_KEYBOARD,
+    MENU_MASTER_VOLUME,
+    MENU_ATTACK,
+    MENU_DECAY,
+    MENU_SUSTAIN,
+    MENU_RELEASE,
+    MENU_VIB_SPEED,
+    MENU_VIB_DEPTH,
+    MENU_VIB_MODE,
+    MENU_RISE_TIME,
+    MENU_TREM_SPEED,
+    MENU_TREM_DEPTH,
+    MENU_TREM_BIAS,
+    MENU_DELAY_TIME,
+    MENU_DELAY_MIX,
+    MENU_DELAY_FB,
+    MENU_DELAY_SAT,
+    MENU_DELAY_MOD_SPEED,
+    MENU_DELAY_MOD_DEPTH,
+    MENU_OPTION_COUNT,
+    MENU_OPTION_NONE = -1
+} MenuOption;
+
 typedef struct {
     const char* key;
     void* var_ptr;
     ConfigType type;
+    MenuOption menu_option;
+    float min_value;
+    float max_value;
+    float step_value;
 } ConfigEntry;
+
+typedef struct {
+    const char* row_label;
+    const MenuOption* item_enums;
+    int item_count;
+} MenuRow;
 
 // Menu state
 extern int g_semitone;
 extern int g_octave;
 extern bool g_show_keyboard;
-extern int g_menu_selection;
+extern int g_current_row;
+extern int g_current_col;
 
 // ADSR Envelope
 extern float g_attack;
@@ -71,11 +108,17 @@ extern int note_map[4][16];
 extern bool key_state[4][16];
 extern int active_notes[4][16];
 extern const char* note_names[];
+extern ConfigEntry g_config_registry[];
+extern const int g_registry_size;
+extern const MenuRow g_menu_layout[];
+extern const int g_menu_layout_size;
 
 bool load_config(const char* filename);
 bool save_config(const char* filename);
 void init_note_map();
 int parse_note(const char* note_str);
 void get_note_string(int midi_note, char* buf);
+ConfigEntry* get_menu_config_entry(MenuOption option);
+MenuOption get_current_menu_option(void);
 
 #endif // DATA_CONFIG_H
