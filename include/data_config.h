@@ -17,6 +17,7 @@ typedef enum {
     MENU_SEMITONE = 0,
     MENU_OCTAVE,
     MENU_SHOW_KEYBOARD,
+    MENU_GAIN,
     MENU_MASTER_VOLUME,
     MENU_PRESET,
     MENU_PITCH_DRIFT,
@@ -52,6 +53,7 @@ typedef enum {
     WHEEL_ASSIGN_ANY,
     WHEEL_ASSIGN_MASTER,
     WHEEL_ASSIGN_CUTOFF,
+    WHEEL_ASSIGN_GAIN,
     WHEEL_ASSIGN_COUNT
 } WheelAssignment;
 
@@ -103,6 +105,7 @@ extern int g_pitch_drift;
 extern float g_vol_drift;
 
 // Master Volume & Vibrato
+extern float g_gain;
 extern float g_master_volume;
 extern float g_vib_speed;
 extern int g_vib_depth;

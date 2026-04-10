@@ -125,6 +125,16 @@ static void AudioCallback(ma_device* pDevice, void* pOutput, const void* pInput,
     if (g_synth_lpf_ready) {
         ma_lpf2_process_pcm_frames(&g_synth_lpf, pOutput, pOutput, frameCount);
     }
+
+    if (g_gain != 1.0f) {
+        short* samples = (short*)pOutput;
+        for (ma_uint32 i = 0; i < frameCount * 2; i++) {
+            float scaled = samples[i] * g_gain;
+            if (scaled > 32767.0f) scaled = 32767.0f;
+            if (scaled < -32768.0f) scaled = -32768.0f;
+            samples[i] = (short)scaled;
+        }
+    }
     
     if (g_trem_enabled && g_trem_depth > 0) {
         short* samples = (short*)pOutput;

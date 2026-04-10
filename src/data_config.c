@@ -29,6 +29,7 @@ int g_pitch_drift = 0;
 float g_vol_drift = 0.0f;
 
 // Master Volume & Vibrato
+float g_gain = 1.0f;
 float g_master_volume = 1.0f;
 float g_vib_speed = 1.3f;
 int g_vib_depth = 16;
@@ -129,6 +130,7 @@ ConfigEntry g_config_registry[] = {
     {"semitone", &g_semitone, CFG_INT, MENU_SEMITONE, -127.0f, 127.0f, 1.0f},
     {"octave", &g_octave, CFG_INT, MENU_OCTAVE, -10.0f, 10.0f, 1.0f},
     {"show_keyboard", &g_show_keyboard, CFG_BOOL, MENU_SHOW_KEYBOARD, 0.0f, 1.0f, 1.0f},
+    {"gain", &g_gain, CFG_FLOAT, MENU_GAIN, 0.0f, 2.0f, 0.05f},
     {"master_volume", &g_master_volume, CFG_FLOAT, MENU_MASTER_VOLUME, 0.0f, 2.0f, 0.05f},
     {"preset", &g_current_preset, CFG_STRING, MENU_PRESET, 0.0f, 0.0f, 1.0f},
     {"pitch_drift", &g_pitch_drift, CFG_INT, MENU_PITCH_DRIFT, 0.0f, 5.0f, 1.0f},
@@ -139,13 +141,16 @@ ConfigEntry g_config_registry[] = {
     {"release_time_ms", &g_release_time, CFG_FLOAT_MS, MENU_RELEASE, 0.0f, 5.0f, 0.25f},
     {"filter_cutoff_hz", &g_filter_cutoff_hz, CFG_FLOAT, MENU_FILTER_CUTOFF, 40.0f, 18000.0f, 0.08f},
     {"filter_q", &g_filter_q, CFG_FLOAT, MENU_FILTER_Q, 0.2f, 10.0f, 0.1f},
+    {"vib_enabled", &g_vib_enabled, CFG_BOOL, MENU_OPTION_NONE, 0.0f, 1.0f, 1.0f},
     {"vib_speed", &g_vib_speed, CFG_FLOAT, MENU_VIB_SPEED, 0.0f, 15.0f, 0.1f},
     {"vib_depth", &g_vib_depth, CFG_INT, MENU_VIB_DEPTH, 0.0f, 100.0f, 2.0f},
     {"vib_mode", &g_vib_mode, CFG_BOOL, MENU_VIB_MODE, 0.0f, 1.0f, 1.0f},
     {"rise_time", &g_rise_time, CFG_FLOAT, MENU_RISE_TIME, 0.0f, 5.0f, 0.5f},
+    {"trem_enabled", &g_trem_enabled, CFG_BOOL, MENU_OPTION_NONE, 0.0f, 1.0f, 1.0f},
     {"trem_speed", &g_trem_speed, CFG_FLOAT, MENU_TREM_SPEED, 0.0f, 15.0f, 0.1f},
     {"trem_depth", &g_trem_depth, CFG_INT, MENU_TREM_DEPTH, 0.0f, 100.0f, 2.0f},
     {"trem_bias", &g_trem_bias, CFG_INT, MENU_TREM_BIAS, 0.0f, 100.0f, 5.0f},
+    {"delay_enabled", &g_delay_enabled, CFG_BOOL, MENU_OPTION_NONE, 0.0f, 1.0f, 1.0f},
     {"delay_time", &g_delay_time, CFG_FLOAT, MENU_DELAY_TIME, 0.1f, 2.0f, 0.025f},
     {"delay_mix", &g_delay_mix, CFG_INT, MENU_DELAY_MIX, 0.0f, 100.0f, 10.0f},
     {"delay_fb", &g_delay_fb, CFG_INT, MENU_DELAY_FB, 0.0f, 100.0f, 10.0f},
@@ -164,7 +169,7 @@ ConfigEntry g_config_registry[] = {
 const int g_registry_size = sizeof(g_config_registry) / sizeof(g_config_registry[0]);
 
 static const MenuOption g_global_menu_items[] = {
-    MENU_SHOW_KEYBOARD, MENU_MASTER_VOLUME, MENU_PRESET
+    MENU_SHOW_KEYBOARD, MENU_GAIN, MENU_MASTER_VOLUME, MENU_PRESET
 };
 
 static const MenuOption g_tune_menu_items[] = {
@@ -207,8 +212,9 @@ const int g_menu_layout_size = sizeof(g_menu_layout) / sizeof(g_menu_layout[0]);
 const WheelAssignmentOption g_wheel_assignment_options[] = {
     {"None", MENU_OPTION_NONE},
     {"Any", MENU_OPTION_COUNT},
-    {"Master", MENU_MASTER_VOLUME},
-    {"Cutoff", MENU_FILTER_CUTOFF}
+    {"Vol", MENU_MASTER_VOLUME},
+    {"Cutoff", MENU_FILTER_CUTOFF},
+    {"Gain", MENU_GAIN}
 };
 
 const int g_wheel_assignment_option_count = sizeof(g_wheel_assignment_options) / sizeof(g_wheel_assignment_options[0]);
@@ -318,7 +324,17 @@ void scan_presets(void) {
 }
 
 const char* get_current_preset_label(void) {
-    return g_current_preset[0] ? g_current_preset : "Default";
+    static char display_name[MAX_PATH];
+
+    if (!g_current_preset[0]) {
+        return "Default";
+    }
+
+    snprintf(display_name, sizeof(display_name), "%s", g_current_preset);
+    if (has_preset_extension(display_name)) {
+        display_name[strlen(display_name) - strlen(PRESET_EXTENSION)] = '\0';
+    }
+    return display_name;
 }
 
 bool make_unique_preset_name(const char* base_name, char* out_name, size_t out_size) {
@@ -451,36 +467,50 @@ bool load_config(const char* filename) {
     
     char line[256];
     while (fgets(line, sizeof(line), f)) {
-        char key[64], val[64];
-        if (sscanf(line, "%[^=]=%s", key, val) == 2) {
-            // Trim spaces
-            int len = strlen(key);
-            while(len > 0 && isspace(key[len-1])) key[--len] = '\0';
-            
-            for (int i = 0; i < g_registry_size; i++) {
-                if (_stricmp(key, g_config_registry[i].key) == 0) {
-                    switch (g_config_registry[i].type) {
-                        case CFG_INT:
-                            *(int*)g_config_registry[i].var_ptr = atoi(val);
-                            break;
-                        case CFG_FLOAT:
-                            *(float*)g_config_registry[i].var_ptr = (float)atof(val);
-                            break;
-                        case CFG_FLOAT_MS:
-                            *(float*)g_config_registry[i].var_ptr = (float)atof(val) / 1000.0f;
-                            break;
-                        case CFG_BOOL:
-                            *(bool*)g_config_registry[i].var_ptr = (atoi(val) != 0 || _stricmp(val, "true") == 0);
-                            break;
-                        case CFG_NOTE_STRING:
-                            *(int*)g_config_registry[i].var_ptr = parse_note(val);
-                            break;
-                        case CFG_STRING:
-                            snprintf((char*)g_config_registry[i].var_ptr, MAX_PATH, "%s", val);
-                            break;
-                    }
-                    break;
+        char* equals = strchr(line, '=');
+        if (!equals) {
+            continue;
+        }
+
+        *equals = '\0';
+        char* key = line;
+        char* val = equals + 1;
+
+        while (*key && isspace((unsigned char)*key)) key++;
+        char* key_end = key + strlen(key);
+        while (key_end > key && isspace((unsigned char)key_end[-1])) *--key_end = '\0';
+
+        while (*val && isspace((unsigned char)*val)) val++;
+        char* val_end = val + strlen(val);
+        while (val_end > val && isspace((unsigned char)val_end[-1])) *--val_end = '\0';
+
+        if (!key[0]) {
+            continue;
+        }
+
+        for (int i = 0; i < g_registry_size; i++) {
+            if (_stricmp(key, g_config_registry[i].key) == 0) {
+                switch (g_config_registry[i].type) {
+                    case CFG_INT:
+                        *(int*)g_config_registry[i].var_ptr = atoi(val);
+                        break;
+                    case CFG_FLOAT:
+                        *(float*)g_config_registry[i].var_ptr = (float)atof(val);
+                        break;
+                    case CFG_FLOAT_MS:
+                        *(float*)g_config_registry[i].var_ptr = (float)atof(val) / 1000.0f;
+                        break;
+                    case CFG_BOOL:
+                        *(bool*)g_config_registry[i].var_ptr = (atoi(val) != 0 || _stricmp(val, "true") == 0);
+                        break;
+                    case CFG_NOTE_STRING:
+                        *(int*)g_config_registry[i].var_ptr = parse_note(val);
+                        break;
+                    case CFG_STRING:
+                        snprintf((char*)g_config_registry[i].var_ptr, MAX_PATH, "%s", val);
+                        break;
                 }
+                break;
             }
         }
     }

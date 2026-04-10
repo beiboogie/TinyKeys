@@ -32,39 +32,47 @@ static void append_menu_option(char** ptr, MenuOption option) {
         case MENU_SEMITONE:
             sprintf(value_buf, "%+d", g_semitone);
             if (is_selected(option)) {
-                append_reversed_option(ptr, "\033[47m", "Semitone: ", value_buf);
+                append_reversed_option(ptr, "\033[47m", "Semi:", value_buf);
             } else {
-                append_plain_option(ptr, "Semitone: ", value_buf);
+                append_plain_option(ptr, "Semi:", value_buf);
             }
             break;
         case MENU_OCTAVE:
             sprintf(value_buf, "%+d", g_octave);
             if (is_selected(option)) {
-                append_reversed_option(ptr, "\033[47m", "Octave: ", value_buf);
+                append_reversed_option(ptr, "\033[47m", "Oct:", value_buf);
             } else {
-                append_plain_option(ptr, "Octave: ", value_buf);
+                append_plain_option(ptr, "Oct:", value_buf);
             }
             break;
         case MENU_SHOW_KEYBOARD:
             if (is_selected(option)) {
-                append_reversed_option(ptr, "\033[47m", "ShowKbd: ", g_show_keyboard ? "ON " : "OFF");
+                append_reversed_option(ptr, "\033[47m", "ShowKbd:", g_show_keyboard ? "ON " : "OFF");
             } else {
-                append_plain_option(ptr, "ShowKbd: ", g_show_keyboard ? "ON " : "OFF");
+                append_plain_option(ptr, "ShowKbd:", g_show_keyboard ? "ON " : "OFF");
+            }
+            break;
+        case MENU_GAIN:
+            sprintf(value_buf, "%d%%", (int)(g_gain * 100 + 0.5f));
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Gain:", value_buf);
+            } else {
+                append_plain_option(ptr, "Gain:", value_buf);
             }
             break;
         case MENU_MASTER_VOLUME:
             sprintf(value_buf, "%d%%", (int)(g_master_volume * 100 + 0.5f));
             if (is_selected(option)) {
-                append_reversed_option(ptr, "\033[47m", "Master: ", value_buf);
+                append_reversed_option(ptr, "\033[47m", "Vol:", value_buf);
             } else {
-                append_plain_option(ptr, "Master: ", value_buf);
+                append_plain_option(ptr, "Vol:", value_buf);
             }
             break;
         case MENU_PRESET:
             if (is_selected(option)) {
-                append_reversed_option(ptr, "\033[47m", "Preset: ", get_current_preset_label());
+                append_reversed_option(ptr, "\033[47m", "TKP:", get_current_preset_label());
             } else {
-                append_plain_option(ptr, "Preset: ", get_current_preset_label());
+                append_plain_option(ptr, "TKP:", get_current_preset_label());
             }
             break;
         case MENU_PITCH_DRIFT:
@@ -308,10 +316,14 @@ void print_tui() {
 
     // Delay Visualizer
     if (g_delay_enabled) {
-        int pos_int = (int)(g_delay_lfo_phase * 12.0f); // 0 to 12
+        float lfo_val = sinf(g_delay_lfo_phase * 2.0f * 3.14159265f); // -1.0 to 1.0
+        float depth = g_delay_mod_dep / 100.0f;
+        if (depth > 1.0f) depth = 1.0f;
+        float pos = lfo_val * depth; // -1.0 to 1.0
+        int pos_int = (int)(pos * -12.0f); // -6 to +6
         ptr += sprintf(ptr, "\033[92m[");
-        for (int i = 0; i <= 12; i++) {
-            if (i == pos_int) ptr += sprintf(ptr, ">");
+        for (int i = -6; i <= 6; i++) {
+            if (i == pos_int) ptr += sprintf(ptr, "|");
             else ptr += sprintf(ptr, "-");
         }
         ptr += sprintf(ptr, "]\033[0m\n");

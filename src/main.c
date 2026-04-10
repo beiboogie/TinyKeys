@@ -68,17 +68,48 @@ static void append_save_input_char(char ch) {
     g_save_input[g_save_input_len] = '\0';
 }
 
+static void clear_dead_key_state(UINT vk, UINT scan_code) {
+    BYTE keyboard_state[256] = {0};
+    WCHAR discard[4];
+    while (ToUnicode(vk, scan_code, keyboard_state, discard, 4, 0) < 0) {
+    }
+}
+
+static void append_translated_save_input_char(int vk) {
+    BYTE keyboard_state[256] = {0};
+    WCHAR translated[4];
+
+    for (int i = 0; i < 256; i++) {
+        if (GetAsyncKeyState(i) & 0x8000) {
+            keyboard_state[i] = 0x80;
+        }
+    }
+
+    UINT scan_code = MapVirtualKeyA((UINT)vk, MAPVK_VK_TO_VSC);
+    int translated_count = ToUnicode((UINT)vk, scan_code, keyboard_state, translated, 4, 0);
+    if (translated_count < 0) {
+        clear_dead_key_state((UINT)vk, scan_code);
+        return;
+    }
+
+    if (translated_count <= 0) {
+        return;
+    }
+
+    for (int i = 0; i < translated_count; i++) {
+        WCHAR wc = translated[i];
+        if (wc == L'\0') {
+            continue;
+        }
+        if ((wc >= 32 && wc <= 126) || wc == L' ') {
+            append_save_input_char((char)wc);
+        }
+    }
+}
+
 static void poll_save_as_input(void) {
     static bool prev_states[256] = {false};
-    const int key_codes[] = {
-        'A','B','C','D','E','F','G','H','I','J','K','L','M',
-        'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-        '0','1','2','3','4','5','6','7','8','9',
-        VK_OEM_MINUS, VK_OEM_PERIOD, VK_SPACE, VK_BACK, VK_RETURN, VK_ESCAPE
-    };
-
-    for (int i = 0; i < (int)(sizeof(key_codes) / sizeof(key_codes[0])); i++) {
-        int vk = key_codes[i];
+    for (int vk = 0; vk < 256; vk++) {
         bool is_down = (GetAsyncKeyState(vk) & 0x8000) != 0;
 
         if (vk == VK_RETURN && g_save_as_wait_for_enter_release) {
@@ -109,14 +140,11 @@ static void poll_save_as_input(void) {
                 }
             } else if (vk == VK_ESCAPE) {
                 g_save_status = SAVE_STATUS_NORMAL;
-            } else if (vk == VK_SPACE) {
-                append_save_input_char(' ');
-            } else if (vk == VK_OEM_MINUS) {
-                append_save_input_char('-');
-            } else if (vk == VK_OEM_PERIOD) {
-                append_save_input_char('_');
-            } else {
-                append_save_input_char((char)vk);
+            } else if (vk != VK_SHIFT && vk != VK_LSHIFT && vk != VK_RSHIFT &&
+                       vk != VK_CONTROL && vk != VK_LCONTROL && vk != VK_RCONTROL &&
+                       vk != VK_MENU && vk != VK_LMENU && vk != VK_RMENU &&
+                       vk != VK_CAPITAL) {
+                append_translated_save_input_char(vk);
             }
             print_tui();
         }
