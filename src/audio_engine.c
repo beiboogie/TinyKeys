@@ -35,6 +35,12 @@ static bool g_synth_lpf_ready = false;
 #define AUDIO_SAMPLE_RATE 44100
 #define FILTER_MIN_Q 0.2f
 #define NOTE_CHANNEL_COUNT 128
+#define CONFIG_FADE_MS 5
+
+static float g_transition_gain = 1.0f;
+static float g_transition_step = 0.0f;
+static int g_transition_target = 1;
+static bool g_fade_out_complete = false;
 
 // Convert Hz to cents
 static int hz_to_cents(float hz) {
@@ -85,6 +91,30 @@ void update_synth_params() {
     }
     tsf_set_volume(g_TinySoundFont, 1.0f);
     refresh_synth_filter();
+    LeaveCriticalSection(&g_audio_cs);
+}
+
+void begin_audio_fade_out(void) {
+    EnterCriticalSection(&g_audio_cs);
+    g_transition_target = 0;
+    g_transition_step = 1.0f / (AUDIO_SAMPLE_RATE * CONFIG_FADE_MS / 1000.0f);
+    g_fade_out_complete = false;
+    LeaveCriticalSection(&g_audio_cs);
+}
+
+bool is_audio_fade_out_complete(void) {
+    bool result;
+    EnterCriticalSection(&g_audio_cs);
+    result = g_fade_out_complete;
+    LeaveCriticalSection(&g_audio_cs);
+    return result;
+}
+
+void begin_audio_fade_in(void) {
+    EnterCriticalSection(&g_audio_cs);
+    g_transition_target = 1;
+    g_transition_step = 1.0f / (AUDIO_SAMPLE_RATE * CONFIG_FADE_MS / 1000.0f);
+    g_fade_out_complete = false;
     LeaveCriticalSection(&g_audio_cs);
 }
 
@@ -214,6 +244,32 @@ static void AudioCallback(ma_device* pDevice, void* pOutput, const void* pInput,
             if (scaled > 32767.0f) scaled = 32767.0f;
             if (scaled < -32768.0f) scaled = -32768.0f;
             samples[i] = (short)scaled;
+        }
+    }
+
+    if (g_transition_gain != 1.0f || g_transition_target == 0) {
+        short* samples = (short*)pOutput;
+        for (ma_uint32 frame = 0; frame < frameCount; frame++) {
+            if (g_transition_target == 0 && g_transition_gain > 0.0f) {
+                g_transition_gain -= g_transition_step;
+                if (g_transition_gain <= 0.0f) {
+                    g_transition_gain = 0.0f;
+                    g_fade_out_complete = true;
+                }
+            } else if (g_transition_target == 1 && g_transition_gain < 1.0f) {
+                g_transition_gain += g_transition_step;
+                if (g_transition_gain >= 1.0f) {
+                    g_transition_gain = 1.0f;
+                }
+            }
+
+            for (int ch = 0; ch < 2; ch++) {
+                int idx = (int)(frame * 2 + ch);
+                float scaled = samples[idx] * g_transition_gain;
+                if (scaled > 32767.0f) scaled = 32767.0f;
+                if (scaled < -32768.0f) scaled = -32768.0f;
+                samples[idx] = (short)scaled;
+            }
         }
     }
     

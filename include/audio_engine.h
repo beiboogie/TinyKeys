@@ -12,6 +12,9 @@ extern CRITICAL_SECTION g_audio_cs;
 bool init_audio_engine(void);
 void cleanup_audio_engine(void);
 void update_synth_params(void);
+void begin_audio_fade_out(void);
+bool is_audio_fade_out_complete(void);
+void begin_audio_fade_in(void);
 
 // Note control functions
 void note_on(int actual_note);

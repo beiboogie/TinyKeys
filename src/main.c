@@ -14,6 +14,115 @@ bool g_running = true;
 
 #define MOUSE_WHEEL_STEP 120.0f
 #define MOUSE_INPUT_BATCH_SIZE 32
+#define SAVE_STATUS_NORMAL 0
+#define SAVE_STATUS_CONFIRM 1
+#define SAVE_STATUS_SAVED 2
+#define SAVE_STATUS_SAVE_AS 3
+
+static bool g_save_as_wait_for_enter_release = false;
+
+static bool perform_preset_load(const char* preset_name) {
+    begin_audio_fade_out();
+    while (!is_audio_fade_out_complete()) {
+        Sleep(1);
+    }
+
+    if (!load_preset_with_name(preset_name)) {
+        begin_audio_fade_in();
+        return false;
+    }
+
+    update_synth_params();
+    begin_audio_fade_in();
+    save_last_state();
+    return true;
+}
+
+static bool cycle_preset_with_fade(int direction) {
+    if (g_preset_count <= 0) {
+        return false;
+    }
+
+    int next_index = g_current_preset_index;
+    if (next_index < 0) {
+        next_index = direction >= 0 ? 0 : g_preset_count - 1;
+    } else {
+        next_index += direction;
+        if (next_index < 0) next_index = g_preset_count - 1;
+        if (next_index >= g_preset_count) next_index = 0;
+    }
+
+    return perform_preset_load(g_preset_files[next_index]);
+}
+
+static void begin_save_as_mode(void) {
+    g_save_status = SAVE_STATUS_SAVE_AS;
+    g_save_input[0] = '\0';
+    g_save_input_len = 0;
+    g_save_as_wait_for_enter_release = true;
+}
+
+static void append_save_input_char(char ch) {
+    if (g_save_input_len >= MAX_PATH - 5) return;
+    g_save_input[g_save_input_len++] = ch;
+    g_save_input[g_save_input_len] = '\0';
+}
+
+static void poll_save_as_input(void) {
+    static bool prev_states[256] = {false};
+    const int key_codes[] = {
+        'A','B','C','D','E','F','G','H','I','J','K','L','M',
+        'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+        '0','1','2','3','4','5','6','7','8','9',
+        VK_OEM_MINUS, VK_OEM_PERIOD, VK_SPACE, VK_BACK, VK_RETURN, VK_ESCAPE
+    };
+
+    for (int i = 0; i < (int)(sizeof(key_codes) / sizeof(key_codes[0])); i++) {
+        int vk = key_codes[i];
+        bool is_down = (GetAsyncKeyState(vk) & 0x8000) != 0;
+
+        if (vk == VK_RETURN && g_save_as_wait_for_enter_release) {
+            if (!is_down) {
+                g_save_as_wait_for_enter_release = false;
+            }
+            prev_states[vk] = is_down;
+            continue;
+        }
+
+        if (is_down && !prev_states[vk]) {
+            if (vk == VK_BACK) {
+                if (g_save_input_len > 0) {
+                    g_save_input[--g_save_input_len] = '\0';
+                }
+            } else if (vk == VK_RETURN) {
+                char unique_name[MAX_PATH];
+                if (!g_save_input[0]) {
+                    snprintf(g_save_input, sizeof(g_save_input), "%s", "Preset");
+                    g_save_input_len = (int)strlen(g_save_input);
+                }
+                if (make_unique_preset_name(g_save_input, unique_name, sizeof(unique_name)) && save_preset_with_name(unique_name)) {
+                    save_last_state();
+                    g_save_status = SAVE_STATUS_SAVED;
+                    g_save_status_time = timeGetTime();
+                } else {
+                    g_save_status = SAVE_STATUS_NORMAL;
+                }
+            } else if (vk == VK_ESCAPE) {
+                g_save_status = SAVE_STATUS_NORMAL;
+            } else if (vk == VK_SPACE) {
+                append_save_input_char(' ');
+            } else if (vk == VK_OEM_MINUS) {
+                append_save_input_char('-');
+            } else if (vk == VK_OEM_PERIOD) {
+                append_save_input_char('_');
+            } else {
+                append_save_input_char((char)vk);
+            }
+            print_tui();
+        }
+        prev_states[vk] = is_down;
+    }
+}
 
 static float clampf(float value, float min_value, float max_value) {
     if (value < min_value) return min_value;
@@ -23,6 +132,7 @@ static float clampf(float value, float min_value, float max_value) {
 
 static bool menu_option_needs_synth_update(MenuOption option) {
     switch (option) {
+        case MENU_PRESET:
         case MENU_ATTACK:
         case MENU_DECAY:
         case MENU_SUSTAIN:
@@ -55,6 +165,9 @@ static void adjust_menu_option(MenuOption option, float delta_units) {
         case MENU_VIB_MODE:
             *(bool*)entry->var_ptr = !(*(bool*)entry->var_ptr);
             break;
+        case MENU_PRESET:
+            cycle_preset_with_fade(delta_units > 0.0f ? 1 : -1);
+            return;
         case MENU_WHEEL_ASSIGN: {
             int next_value = *(int*)entry->var_ptr + (delta_units > 0.0f ? 1 : -1);
             if (next_value < 0) next_value = g_wheel_assignment_option_count - 1;
@@ -176,17 +289,14 @@ int main(int argc, char *argv[]) {
     desiredInMode |= ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT;
     SetConsoleMode(hIn, desiredInMode);
 
-    // 1. Fallback load default config from possible locations
-    if (!load_config("config.ini")) {
-        if (!load_config("../config.ini")) {
-            load_config("IsomorphicKeyboard/config.ini");
-        }
-    }
+    scan_presets();
+    load_config("config.ini");
+    sync_current_preset_index();
 
     // 2. Parse command line arguments for specific config
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--config") == 0 && i+1 < argc) {
-            load_config(argv[++i]);
+            perform_preset_load(argv[++i]);
         }
     }
     
@@ -216,8 +326,8 @@ int main(int argc, char *argv[]) {
     
     while (g_running) {
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
-            if (g_save_status == 1) {
-                g_save_status = 0;
+            if (g_save_status == SAVE_STATUS_CONFIRM || g_save_status == SAVE_STATUS_SAVE_AS) {
+                g_save_status = SAVE_STATUS_NORMAL;
                 print_tui();
                 Sleep(200); // debounce
                 continue;
@@ -229,35 +339,49 @@ int main(int argc, char *argv[]) {
         
         DWORD current_time = timeGetTime();
         process_mouse_wheel(hIn);
+        if (g_save_status == SAVE_STATUS_SAVE_AS) {
+            poll_save_as_input();
+        }
         
         // Save preset handling
         bool is_ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
         bool is_s = (GetAsyncKeyState('S') & 0x8000) != 0;
+        bool is_enter = (GetAsyncKeyState(VK_RETURN) & 0x8000) != 0;
         static bool s_prev = false;
+        static bool enter_prev = false;
 
-        if (g_save_status == 1) {
-            if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
-                save_config("config.ini");
-                g_save_status = 2;
+        if (g_save_status == SAVE_STATUS_CONFIRM) {
+            if (is_ctrl && is_enter && !enter_prev) {
+                begin_save_as_mode();
+                print_tui();
+            } else if (is_enter && !enter_prev) {
+                if (!g_current_preset[0]) {
+                    save_preset_with_name("Default.tkp");
+                } else {
+                    save_preset_with_name(g_current_preset);
+                }
+                save_last_state();
+                g_save_status = SAVE_STATUS_SAVED;
                 g_save_status_time = current_time;
                 print_tui();
                 Sleep(200); // debounce
             }
-        } else {
+        } else if (g_save_status == SAVE_STATUS_NORMAL || g_save_status == SAVE_STATUS_SAVED) {
             if (is_ctrl && is_s && !s_prev) {
-                g_save_status = 1;
+                g_save_status = SAVE_STATUS_CONFIRM;
                 print_tui();
             }
         }
         s_prev = is_s;
+        enter_prev = is_enter;
         
-        if (g_save_status == 2 && current_time - g_save_status_time > 2000) {
-            g_save_status = 0;
+        if (g_save_status == SAVE_STATUS_SAVED && current_time - g_save_status_time > 2000) {
+            g_save_status = SAVE_STATUS_NORMAL;
             print_tui();
         }
 
         // Menu control
-        if (g_save_status == 0 || g_save_status == 2) {
+        if (g_save_status == SAVE_STATUS_NORMAL || g_save_status == SAVE_STATUS_SAVED) {
             bool is_up = (GetAsyncKeyState(VK_UP) & 0x8000) != 0;
             bool is_down = (GetAsyncKeyState(VK_DOWN) & 0x8000) != 0;
             bool is_left = (GetAsyncKeyState(VK_LEFT) & 0x8000) != 0;
@@ -279,7 +403,6 @@ int main(int argc, char *argv[]) {
             bool trigger_up = (up_held == 1) || (up_held > 400 && up_held % 30 == 0);
             bool trigger_down = (down_held == 1) || (down_held > 400 && down_held % 30 == 0);
             bool menu_changed = false;
-
             if (trigger_left) {
                 g_current_col--;
                 if (g_current_col < 0) {
@@ -402,6 +525,8 @@ int main(int argc, char *argv[]) {
     // Show cursor and restore console mode before exit
     printf("\033[?25h\n");
     SetConsoleMode(hIn, dwInMode);
+    save_last_state();
+    free_presets();
 
     cleanup_audio_engine();
 

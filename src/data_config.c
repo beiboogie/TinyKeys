@@ -5,12 +5,18 @@
 #include <ctype.h>
 #include <windows.h>
 
+#define LAST_STATE_FILENAME "config.ini"
+#define PRESET_EXTENSION ".tkp"
+
 // Menu state
 int g_semitone = 0;
 int g_octave = 0;
 bool g_show_keyboard = true;
 int g_current_row = 0;
 int g_current_col = 0;
+char g_current_preset[MAX_PATH] = "";
+char g_save_input[MAX_PATH] = "";
+int g_save_input_len = 0;
 
 // ADSR Envelope
 float g_attack = 0.0f;
@@ -53,6 +59,9 @@ float g_delay_lfo_phase = 0.0f;
 int g_wheel_assign = WHEEL_ASSIGN_NONE;
 int g_wheel_mode = WHEEL_MODE_MOUSE;
 float g_wheel_sense = 1.0f;
+char** g_preset_files = NULL;
+int g_preset_count = 0;
+int g_current_preset_index = -1;
 
 // Key layout definitions
 const int num_keys[4] = {13, 12, 11, 10};
@@ -121,6 +130,7 @@ ConfigEntry g_config_registry[] = {
     {"octave", &g_octave, CFG_INT, MENU_OCTAVE, -10.0f, 10.0f, 1.0f},
     {"show_keyboard", &g_show_keyboard, CFG_BOOL, MENU_SHOW_KEYBOARD, 0.0f, 1.0f, 1.0f},
     {"master_volume", &g_master_volume, CFG_FLOAT, MENU_MASTER_VOLUME, 0.0f, 2.0f, 0.05f},
+    {"preset", &g_current_preset, CFG_STRING, MENU_PRESET, 0.0f, 0.0f, 1.0f},
     {"pitch_drift", &g_pitch_drift, CFG_INT, MENU_PITCH_DRIFT, 0.0f, 5.0f, 1.0f},
     {"vol_drift", &g_vol_drift, CFG_FLOAT, MENU_VOL_DRIFT, 0.0f, 10.0f, 0.5f},
     {"attack_time", &g_attack, CFG_FLOAT, MENU_ATTACK, 0.0f, 2.0f, 0.01f},
@@ -154,11 +164,11 @@ ConfigEntry g_config_registry[] = {
 const int g_registry_size = sizeof(g_config_registry) / sizeof(g_config_registry[0]);
 
 static const MenuOption g_global_menu_items[] = {
-    MENU_SEMITONE, MENU_OCTAVE, MENU_SHOW_KEYBOARD, MENU_MASTER_VOLUME
+    MENU_SHOW_KEYBOARD, MENU_MASTER_VOLUME, MENU_PRESET
 };
 
-static const MenuOption g_dyn_menu_items[] = {
-    MENU_PITCH_DRIFT, MENU_VOL_DRIFT
+static const MenuOption g_tune_menu_items[] = {
+    MENU_SEMITONE, MENU_OCTAVE, MENU_PITCH_DRIFT, MENU_VOL_DRIFT
 };
 
 static const MenuOption g_adsr_menu_items[] = {
@@ -183,8 +193,8 @@ static const MenuOption g_wheel_menu_items[] = {
 };
 
 const MenuRow g_menu_layout[] = {
-    {"Global", g_global_menu_items, sizeof(g_global_menu_items) / sizeof(g_global_menu_items[0])},
-    {"DYN", g_dyn_menu_items, sizeof(g_dyn_menu_items) / sizeof(g_dyn_menu_items[0])},
+    {"System", g_global_menu_items, sizeof(g_global_menu_items) / sizeof(g_global_menu_items[0])},
+    {"Tune", g_tune_menu_items, sizeof(g_tune_menu_items) / sizeof(g_tune_menu_items[0])},
     {"SYNTH", g_adsr_menu_items, sizeof(g_adsr_menu_items) / sizeof(g_adsr_menu_items[0])},
     {"\"VB-2\":", g_vib_menu_items, sizeof(g_vib_menu_items) / sizeof(g_vib_menu_items[0])},
     {"\"Trelicopter\":", g_trem_menu_items, sizeof(g_trem_menu_items) / sizeof(g_trem_menu_items[0])},
@@ -207,6 +217,194 @@ static const char* g_wheel_mode_labels[] = {
     "Mouse",
     "Pad"
 };
+
+static bool is_absolute_path(const char* path) {
+    return path && ((strlen(path) > 1 && path[1] == ':') || (path[0] == '\\' && path[1] == '\\'));
+}
+
+static void build_app_path(const char* filename, char* out_path, size_t out_size) {
+    char module_path[MAX_PATH];
+    GetModuleFileNameA(NULL, module_path, MAX_PATH);
+    char* last_sep = strrchr(module_path, '\\');
+    if (last_sep) {
+        last_sep[1] = '\0';
+    } else {
+        module_path[0] = '\0';
+    }
+
+    if (is_absolute_path(filename)) {
+        snprintf(out_path, out_size, "%s", filename);
+    } else {
+        snprintf(out_path, out_size, "%s%s", module_path, filename);
+    }
+}
+
+static bool has_preset_extension(const char* name) {
+    size_t name_len = strlen(name);
+    size_t ext_len = strlen(PRESET_EXTENSION);
+    return name_len >= ext_len && _stricmp(name + name_len - ext_len, PRESET_EXTENSION) == 0;
+}
+
+static void normalize_preset_name(const char* input_name, char* out_name, size_t out_size) {
+    if (!input_name || !input_name[0]) {
+        out_name[0] = '\0';
+        return;
+    }
+
+    snprintf(out_name, out_size, "%s", input_name);
+    if (!has_preset_extension(out_name)) {
+        strncat(out_name, PRESET_EXTENSION, out_size - strlen(out_name) - 1);
+    }
+}
+
+static void set_current_preset_name(const char* preset_name) {
+    if (!preset_name) {
+        g_current_preset[0] = '\0';
+        return;
+    }
+    normalize_preset_name(preset_name, g_current_preset, sizeof(g_current_preset));
+}
+
+void free_presets(void) {
+    for (int i = 0; i < g_preset_count; i++) {
+        free(g_preset_files[i]);
+    }
+    free(g_preset_files);
+    g_preset_files = NULL;
+    g_preset_count = 0;
+    g_current_preset_index = -1;
+}
+
+void sync_current_preset_index(void) {
+    g_current_preset_index = -1;
+    for (int i = 0; i < g_preset_count; i++) {
+        if (_stricmp(g_preset_files[i], g_current_preset) == 0) {
+            g_current_preset_index = i;
+            return;
+        }
+    }
+}
+
+void scan_presets(void) {
+    WIN32_FIND_DATAA find_data;
+    char search_pattern[MAX_PATH];
+    build_app_path("*" PRESET_EXTENSION, search_pattern, sizeof(search_pattern));
+
+    free_presets();
+
+    HANDLE find_handle = FindFirstFileA(search_pattern, &find_data);
+    if (find_handle == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    do {
+        if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            continue;
+        }
+
+        char** next_list = (char**)realloc(g_preset_files, sizeof(char*) * (g_preset_count + 1));
+        if (!next_list) {
+            continue;
+        }
+        g_preset_files = next_list;
+        g_preset_files[g_preset_count] = _strdup(find_data.cFileName);
+        if (g_preset_files[g_preset_count]) {
+            g_preset_count++;
+        }
+    } while (FindNextFileA(find_handle, &find_data));
+
+    FindClose(find_handle);
+    sync_current_preset_index();
+}
+
+const char* get_current_preset_label(void) {
+    return g_current_preset[0] ? g_current_preset : "Default";
+}
+
+bool make_unique_preset_name(const char* base_name, char* out_name, size_t out_size) {
+    char normalized[MAX_PATH];
+    char stem[MAX_PATH];
+    char full_path[MAX_PATH];
+
+    normalize_preset_name(base_name, normalized, sizeof(normalized));
+    if (!normalized[0]) {
+        return false;
+    }
+
+    snprintf(stem, sizeof(stem), "%s", normalized);
+    char* ext = strrchr(stem, '.');
+    if (ext) *ext = '\0';
+
+    snprintf(out_name, out_size, "%s", normalized);
+    build_app_path(out_name, full_path, sizeof(full_path));
+    if (GetFileAttributesA(full_path) == INVALID_FILE_ATTRIBUTES) {
+        return true;
+    }
+
+    for (int index = 1; index < 10000; index++) {
+        snprintf(out_name, out_size, "%s_%d%s", stem, index, PRESET_EXTENSION);
+        build_app_path(out_name, full_path, sizeof(full_path));
+        if (GetFileAttributesA(full_path) == INVALID_FILE_ATTRIBUTES) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool load_preset_with_name(const char* preset_name) {
+    char normalized[MAX_PATH];
+    normalize_preset_name(preset_name, normalized, sizeof(normalized));
+    if (!normalized[0]) {
+        return false;
+    }
+
+    if (!load_config(normalized)) {
+        return false;
+    }
+
+    set_current_preset_name(normalized);
+    init_note_map();
+    sync_current_preset_index();
+    return true;
+}
+
+bool save_preset_with_name(const char* preset_name) {
+    char normalized[MAX_PATH];
+    normalize_preset_name(preset_name, normalized, sizeof(normalized));
+    if (!normalized[0]) {
+        return false;
+    }
+
+    set_current_preset_name(normalized);
+    if (!save_config(normalized)) {
+        return false;
+    }
+
+    scan_presets();
+    sync_current_preset_index();
+    return true;
+}
+
+bool cycle_current_preset(int direction) {
+    if (g_preset_count <= 0) {
+        return false;
+    }
+
+    if (g_current_preset_index < 0) {
+        g_current_preset_index = 0;
+    } else {
+        g_current_preset_index += direction;
+        if (g_current_preset_index < 0) g_current_preset_index = g_preset_count - 1;
+        if (g_current_preset_index >= g_preset_count) g_current_preset_index = 0;
+    }
+
+    return load_preset_with_name(g_preset_files[g_current_preset_index]);
+}
+
+void save_last_state(void) {
+    save_config(LAST_STATE_FILENAME);
+}
 
 ConfigEntry* get_menu_config_entry(MenuOption option) {
     for (int i = 0; i < g_registry_size; i++) {
@@ -246,7 +444,9 @@ const char* get_wheel_mode_label(void) {
 
 // Load config file
 bool load_config(const char* filename) {
-    FILE* f = fopen(filename, "r");
+    char resolved_path[MAX_PATH];
+    build_app_path(filename, resolved_path, sizeof(resolved_path));
+    FILE* f = fopen(resolved_path, "r");
     if (!f) return false; // Ignore if config not found
     
     char line[256];
@@ -275,6 +475,9 @@ bool load_config(const char* filename) {
                         case CFG_NOTE_STRING:
                             *(int*)g_config_registry[i].var_ptr = parse_note(val);
                             break;
+                        case CFG_STRING:
+                            snprintf((char*)g_config_registry[i].var_ptr, MAX_PATH, "%s", val);
+                            break;
                     }
                     break;
                 }
@@ -287,7 +490,9 @@ bool load_config(const char* filename) {
 
 // Save config file
 bool save_config(const char* filename) {
-    FILE* f = fopen(filename, "w");
+    char resolved_path[MAX_PATH];
+    build_app_path(filename, resolved_path, sizeof(resolved_path));
+    FILE* f = fopen(resolved_path, "w");
     if (!f) return false;
     
     for (int i = 0; i < g_registry_size; i++) {
@@ -310,6 +515,9 @@ bool save_config(const char* filename) {
                 fprintf(f, "%s=%s\n", g_config_registry[i].key, buf);
                 break;
             }
+            case CFG_STRING:
+                fprintf(f, "%s=%s\n", g_config_registry[i].key, (char*)g_config_registry[i].var_ptr);
+                break;
         }
     }
     

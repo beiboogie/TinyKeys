@@ -2,13 +2,15 @@
 #define DATA_CONFIG_H
 
 #include <stdbool.h>
+#include <windows.h>
 
 typedef enum {
     CFG_INT,
     CFG_FLOAT,
     CFG_FLOAT_MS, // Specialized for ms <-> s conversion (like release_time_ms)
     CFG_BOOL,
-    CFG_NOTE_STRING
+    CFG_NOTE_STRING,
+    CFG_STRING
 } ConfigType;
 
 typedef enum {
@@ -16,6 +18,9 @@ typedef enum {
     MENU_OCTAVE,
     MENU_SHOW_KEYBOARD,
     MENU_MASTER_VOLUME,
+    MENU_PRESET,
+    MENU_PITCH_DRIFT,
+    MENU_VOL_DRIFT,
     MENU_ATTACK,
     MENU_DECAY,
     MENU_SUSTAIN,
@@ -38,8 +43,6 @@ typedef enum {
     MENU_WHEEL_ASSIGN,
     MENU_WHEEL_MODE,
     MENU_WHEEL_SENSE,
-    MENU_PITCH_DRIFT,
-    MENU_VOL_DRIFT,
     MENU_OPTION_COUNT,
     MENU_OPTION_NONE = -1
 } MenuOption;
@@ -85,6 +88,9 @@ extern int g_octave;
 extern bool g_show_keyboard;
 extern int g_current_row;
 extern int g_current_col;
+extern char g_current_preset[MAX_PATH];
+extern char g_save_input[MAX_PATH];
+extern int g_save_input_len;
 
 // ADSR Envelope
 extern float g_attack;
@@ -147,9 +153,18 @@ extern const int g_wheel_assignment_option_count;
 extern int g_wheel_assign;
 extern int g_wheel_mode;
 extern float g_wheel_sense;
+extern char** g_preset_files;
+extern int g_preset_count;
+extern int g_current_preset_index;
 
 bool load_config(const char* filename);
 bool save_config(const char* filename);
+bool load_preset_with_name(const char* preset_name);
+bool save_preset_with_name(const char* preset_name);
+void scan_presets(void);
+void free_presets(void);
+bool cycle_current_preset(int direction);
+void sync_current_preset_index(void);
 void init_note_map();
 int parse_note(const char* note_str);
 void get_note_string(int midi_note, char* buf);
@@ -158,5 +173,8 @@ MenuOption get_current_menu_option(void);
 MenuOption get_wheel_target_option(void);
 const char* get_wheel_assignment_label(void);
 const char* get_wheel_mode_label(void);
+const char* get_current_preset_label(void);
+void save_last_state(void);
+bool make_unique_preset_name(const char* base_name, char* out_name, size_t out_size);
 
 #endif // DATA_CONFIG_H

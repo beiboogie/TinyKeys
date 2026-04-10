@@ -1,14 +1,17 @@
 # QuickStart / 快速上手指南
 
-Welcome to **TinyKeys**. This document serves as your synthesizer operation manual, guiding you through performance techniques and sound design parameters. 
-欢迎使用 **TinyKeys**。本文档作为您的合成器操作手册，将指导您掌握演奏技巧与声音设计参数。
+Welcome to **TinyKeys**. This document serves as your synthesizer operation manual.
 
----
+欢迎使用 **TinyKeys**。本文档将指导您掌握这台命令行合成器的演奏技巧与声音设计。
 
-## 1. Performance Interface / 演奏界面
+------
+
+## 1. Performance & Controls / 演奏与控制
+
+### Keyboard Layout / 键盘布局
 
 You only need your QWERTY keyboard to start playing. The layout is designed to mimic an isomorphic instrument (default setting is like a bass guitar or stringed instrument).
-您只需使用 QWERTY 键盘即可开始演奏。其布局设计旨在模拟同构乐器（如贝斯或弦乐器）。
+您只需使用 QWERTY 键盘即可开始演奏。默认布局设计旨在模拟同构乐器（如贝斯或弦乐器）。
 
 ```apl
 [1] [2] [3] [4] [5] [6] [7] [8] [9] [0] [-] [=] [BS]
@@ -18,22 +21,15 @@ You only need your QWERTY keyboard to start playing. The layout is designed to m
 [ALT]     [          SPACE          ]       [←][↓][→]
 ```
 
-### Control Keys / 控制键说明
+### Command Shortcuts / 快捷键指令
 
-*   `[↑][↓][←][→]`: **Select Parameter / 菜单导航**
-*   `[CTRL] + [↑]/[↓]`: **Adjust Value / 调节参数值**
-*   `[Mouse Wheel]`: **Wheel Control / 滚轮控制**
-*   `[CTRL] + [S]`: **Save Preset / 保存预设**
-*   `[L-SHIFT]`: **Tremolo Switch / Tremolo音量颤音开关**
-*   `[L-ALT]`: **Tape Echo Switch / 磁带延迟开关**
-*   `[SPACE]`: **Vibrato Switch / Vibrato音高颤音开关**
-
-When `Wheel: Assign` is set to `None`, the mouse wheel controls the currently selected menu item.  
-当 `Wheel: Assign` 设为 `None` 时，鼠标滚轮会控制当前选中的菜单项。  
-
-When `Wheel: Assign` is set to `Master` or `Cutoff`, the mouse wheel always controls that target first, regardless of cursor position.  
-当 `Wheel: Assign` 设为 `Master` 或 `Cutoff` 时，无论光标停在哪个菜单项上，鼠标滚轮都会优先控制该目标。  
-
+- `[↑][↓][←][→]`: **Navigate Menu / 菜单导航**
+- `[CTRL] + [↑]/[↓]`: **Adjust Value / 精细调节数值**
+- `[Mouse Wheel]`: **Quick Tweak / 滚轮快速调节** (根据 `Wheel` 行的 `Assign` 逻辑)
+- `[CTRL] + [S]`: **Save Interface / 进入保存界面**
+  - `[ENTER]`: **Overwrite / 覆盖当前预设**
+  - `[CTRL] + [ENTER]`: **Save As / 另存为新预设** (在底栏输入名称)
+- `[ESC]`: **Exit or Cancel / 退出程序或取消保存**
 
 ### Note Layout / 音符排列规律
 
@@ -47,86 +43,107 @@ All other keys are dedicated to performance. The default mapping follows a stric
 *   Adjacent keys in the **same column (vertical)** are separated by a **Perfect 4th**. This is identical to the standard tuning of a Bass guitar or the lower strings (E, A, D, G) of a standard guitar.
     **同一列（垂直方向）**相邻的按键相差**纯四度**。这与标准贝斯的定弦，或吉他低音弦（E、A、D、G）的音程关系完全相同。
 
----
+------
 
-## 2. Settings Menu  /  合成器参数设置
+## 2. Parameter Guide / 参数详解
 
-The Settings Menu allows you to sculpt your tone and adjust global behaviors. Use the arrow keys to navigate and modify these values.
-设置菜单允许您塑造音色并调整全局行为。使用方向键导航并修改这些数值。
+### System: Global Settings / 全局管理
 
+| Setting / 设置项 | Explanation / 解释说明                    | Chinese / 中文释义                 |
+| -------------------- | --------------------------------------------- | -------------------------------------- |
+| `ShowKbd`            | Toggle the visual keyboard display.           | 显示/隐藏虚拟键盘动画                  |
+| `Master`             | Global output volume.                         | 全局输出音量（最后级增益）             |
+| `Preset`             | Switch between `.tkp` files in the directory. | 预设切换（自动识别目录下的 .tkp 文件） |
 
+### Tune: Pitch & Dynamics / 音调与动态
 
-### Global & Master / 全局与主控参数
+| Setting / 设置项 | Explanation / 解释说明                     | Chinese / 中文释义           |
+| -------------------- | ---------------------------------------------- | -------------------------------- |
+| `Semitone`           | Transpose by semitones.                        | 半音偏移                         |
+| `Octave`             | Transpose by octaves.                          | 八度偏移                         |
+| `P-Drift`            | Random pitch instability per note (0-5 cents). | 音高漂移（模拟硬件的不稳定性）   |
+| `V-Drift`            | Random volume variation per note.              | 音量随机偏差（增加演奏的人性化） |
 
-| Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
-| :--- | :--- | :--- |
-| `Semitone` | Transpose the entire keyboard by semitones. | 半音移调（移调整个键盘） |
-| `Octave` | Transpose the entire keyboard by octaves. | 八度移调 |
-| `ShowKbd` | Toggle the visual keyboard UI on/off to save screen space. | 界面虚拟键盘显示开关 |
-| `Master` | Master output volume (0% - 200%). Applied at the final output stage, so sustained notes also respond in real time. | 主输出音量（在最终输出级生效，持续音也会实时响应） |
+### Synth: Envelope & Filter / 合成与滤波
 
-### SYNTH / 合成器核心层
-
-Shapes the core tone before modulation and delay. This row combines the ADSR envelope with a resonant low-pass filter.
-这一行负责调制和延迟之前的核心音色塑形，将 ADSR 包络与共振低通滤波器合并在一起。
-
-| Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
-| :--- | :--- | :--- |
-| `A` (Attack) | Time taken to reach maximum volume after key press. | 起音时间（按下后达到最大音量的时间） |
-| `D` (Decay) | Time taken to drop from peak volume to sustain level. | 衰减时间（从最大音量降至延音电平的时间） |
-| `S` (Sustain) | The volume level held while the key remains pressed. | 延音电平（按住按键时保持的音量大小） |
-| `R` (Release) | Time taken for the sound to fade out after key release. | 释音时间（松开按键后声音淡出的时间） |
-| `LP` (Cutoff) | Resonant low-pass cutoff frequency. Uses a logarithmic response for smoother low-end sweeps. | 低通截止频率（使用对数曲线，低频扫动更细腻） |
-| `Q` | Resonance amount of the low-pass filter. Higher values make the cutoff peak more pronounced. | 低通滤波器共振强度（值越高，截止点峰值越明显） |
+| Setting / 设置项 | Explanation / 解释说明     | Chinese / 中文释义                |
+| -------------------- | ------------------------------ | ------------------------------------- |
+| `A/D/S/R`            | Standard ADSR volume envelope. | 经典的 ADSR 振幅包络                  |
+| `LP` (Cutoff)        | Low-pass filter frequency.     | 低通滤波器截止频率                    |
+| `Q` (Res)            | Filter resonance peak.         | 滤波器谐振（增加音色的尖锐度/哇音感） |
 
 ### "VB-2" Vibrato / 音高颤音（揉弦）效果器
 
 Simulates pitch modulation. Activated by the `[SPACE]` key.
 模拟音高调制。通过 `[SPACE]` 键激活。
 
-| Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
-| :--- | :--- | :--- |
-| `Spd` (Speed) | Rate of the LFO pitch modulation (in Hz). | 调制速度（LFO频率） |
-| `Dep` (Depth) | Intensity of the pitch variation (in cents). | 调制深度（音高变化的幅度，单位：音分） |
-| `Mode` | `Latch`: Tap to toggle on/off. `Unlatch`: Active only while held. | 触发模式（Latch: 按下切换 / Unlatch: 按住生效） |
-| `Rise` | Time taken for the vibrato to fade in to full depth. | 渐入时间（揉弦效果达到最大深度的缓冲时间） |
+| Setting / 设置项 | Explanation / 解释说明                                       | Chinese / 中文释义                              |
+| :--------------- | :----------------------------------------------------------- | :---------------------------------------------- |
+| `Spd` (Speed)    | Rate of the LFO pitch modulation (in Hz).                    | 调制速度（LFO频率）                             |
+| `Dep` (Depth)    | Intensity of the pitch variation (in cents).                 | 调制深度（音高变化的幅度，单位：音分）          |
+| `Mode`           | `Latch`: Tap to toggle on/off. `Unlatch`: Active only while held. | 触发模式（Latch: 按下切换 / Unlatch: 按住生效） |
+| `Rise`           | Time taken for the vibrato to fade in to full depth.         | 渐入时间（揉弦效果达到最大深度的缓冲时间）      |
 
 ### "Trelicopter" Tremolo / 音量颤音效果器
 
 Simulates amplitude (volume) modulation. Activated by the `[L-SHIFT]` key.
 模拟振幅（音量）调制。通过 `[L-SHIFT]` 键激活。
 
-| Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
-| :--- | :--- | :--- |
-| `Spd` (Speed) | Rate of the volume oscillation (in Hz). | 振荡速度 |
-| `Dep` (Depth) | Intensity of the volume reduction. | 振荡深度（音量削减的幅度） |
-| `Bias` | Adjusts the symmetry of the waveform (Duty cycle). | 波形偏置（调节振荡波形的占空比/非对称性） |
+| Setting / 设置项 | Explanation / 解释说明                             | Chinese / 中文释义                        |
+| :--------------- | :------------------------------------------------- | :---------------------------------------- |
+| `Spd` (Speed)    | Rate of the volume oscillation (in Hz).            | 振荡速度                                  |
+| `Dep` (Depth)    | Intensity of the volume reduction.                 | 振荡深度（音量削减的幅度）                |
+| `Bias`           | Adjusts the symmetry of the waveform (Duty cycle). | 波形偏置（调节振荡波形的占空比/非对称性） |
 
 ### "RE-20" Tape Echo / 磁带延迟效果器
 
 An analog-tape-style delay with saturation and wow/flutter. Activated by the `[L-ALT]` key.
 模拟磁带风格延迟，带有饱和度与磁带抖动效果。通过 `[L-ALT]` 键激活。
 
-| Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
-| :--- | :--- | :--- |
-| `T` (Time) | Delay time (in milliseconds). | 延迟时间（回声间隔，单位：毫秒） |
-| `M` (Mix) | Dry/Wet signal blend. Higher means louder echoes. | 混合比例（干湿比，值越大回声越响） |
-| `FB` (Feedback) | Amount of signal fed back. Higher means more repeats. | 反馈量（值越大回声重复次数越多） |
-| `Sa` (Saturation)| Tape saturation/distortion on the delayed signal. | 磁带饱和度（为回声添加温暖的模拟失真） |
-| `Sp` (LFO Speed) | Speed of the tape mechanism modulation (Wow & Flutter). | 磁带抖动速度（LFO频率） |
-| `Dp` (LFO Depth) | Intensity of the tape mechanism modulation. | 磁带抖动深度（模拟电机不稳定的音高偏移） |
+| Setting / 设置项  | Explanation / 解释说明                                  | Chinese / 中文释义                       |
+| :---------------- | :------------------------------------------------------ | :--------------------------------------- |
+| `T` (Time)        | Delay time (in milliseconds).                           | 延迟时间（回声间隔，单位：毫秒）         |
+| `M` (Mix)         | Dry/Wet signal blend. Higher means louder echoes.       | 混合比例（干湿比，值越大回声越响）       |
+| `FB` (Feedback)   | Amount of signal fed back. Higher means more repeats.   | 反馈量（值越大回声重复次数越多）         |
+| `Sa` (Saturation) | Tape saturation/distortion on the delayed signal.       | 磁带饱和度（为回声添加温暖的模拟失真）   |
+| `Sp` (LFO Speed)  | Speed of the tape mechanism modulation (Wow & Flutter). | 磁带抖动速度（LFO频率）                  |
+| `Dp` (LFO Depth)  | Intensity of the tape mechanism modulation.             | 磁带抖动深度（模拟电机不稳定的音高偏移） |
 
 ### Wheel / 滚轮控制
 
 Adds a performance layer for live gestures without changing the current menu focus.
-提供一个独立的现场控制层，让您在不切换当前菜单焦点的情况下进行实时调制。
+提供一个独立的实时控制层，让您在不切换当前菜单焦点的情况下进行实时调制。
 
 | Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
 | :--- | :--- | :--- |
-| `Assign` | Selects which parameter the mouse wheel controls. Current built-in targets are `None`, `Master`, and `Cutoff`. | 指定鼠标滚轮控制的参数，当前内置目标为 `None`、`Master`、`Cutoff` |
+| `Assign` | Selects which parameter the mouse wheel controls. Current targets are `Any`,  `None`, `Master`, and `Cutoff`. | 指定鼠标滚轮控制的参数。可选目标包括`Any`、 `None`、`Master`、`Cutoff` |
+| `Mode` | Toggles between `Mouse` and `Pad`. Switching to `Pad` reverses the scroll direction for a natural trackpad feel. | 切换 `Mouse` (鼠标) 或 `Pad` (触控板) 模式。后者会反转滚动方向以适配触控板逻辑 |
 | `Sense` | Scales wheel sensitivity to match different mice and DPI settings. | 调整滚轮灵敏度，以适配不同鼠标与滚轮分辨率 |
 
-## 3. Preset Function / 预设功能
+------
 
-Press `[CTRL] + [S]` to save your current settings to `config.ini` in the root directory. These values will be loaded automatically on startup.
-您可以按下`[CTRL] + [S]`来保存预设，预设文件是软件根目录的`config.ini`。在软件启动时会自动读取其中的数值。
+## 3. Preset & Configuration / 预设与进阶配置
+
+### .tkp Files
+
+Each preset is stored as a `.tkp` file (Plain text/INI format). You can share these files or back them up.
+
+每个预设都存储为 `.tkp` 文件。它们本质上是纯文本，您可以自由分享或编辑。
+
+### Manual-Only Settings / 仅限手动修改的参数
+
+The following parameters **cannot** be changed within the software UI. You can open the `.tkp` file with a text editor (like Notepad) to modify them:
+
+以下参数**无法**在软件界面中修改，可以通过文本编辑器手动更改：
+
+```
+# Manual Config in .tkp / 预设文件中的手动配置项
+row0_start=A1    # Starting pitch for the top row (1 to BS)
+row1_start=D2    # Starting pitch for the second row (Q to ])
+row2_start=G2    # Starting pitch for the third row (A to ')
+row3_start=C3    # Starting pitch for the bottom row (Z to /)
+```
+
+> **Tip**: After manually editing and saving a `.tkp` file, simply re-select the preset in TinyKeys to apply the new row mappings.
+>
+> **提示**：手动修改并保存文件后，在软件中重新切回该预设即可应用新的行映射。

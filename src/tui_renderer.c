@@ -60,6 +60,13 @@ static void append_menu_option(char** ptr, MenuOption option) {
                 append_plain_option(ptr, "Master: ", value_buf);
             }
             break;
+        case MENU_PRESET:
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Preset: ", get_current_preset_label());
+            } else {
+                append_plain_option(ptr, "Preset: ", get_current_preset_label());
+            }
+            break;
         case MENU_PITCH_DRIFT:
             sprintf(value_buf, "%dc", g_pitch_drift);
             if (is_selected(option)) {
@@ -354,11 +361,13 @@ void print_tui() {
     
     ptr += sprintf(ptr, "\n\n\033[2K");
     if (g_save_status == 1) {
-        ptr += sprintf(ptr, "\033[103;30m [!] SAVE PRESET \033[0m\033[93m Press ENTER to confirm saving to config.ini, or ESC to cancel.\033[0m\n");
+        ptr += sprintf(ptr, "\033[103;30m [!] SAVE PRESET \033[0m\033[93m ENTER overwrite current .tkp, CTRL+ENTER Save As, ESC cancel.\033[0m\n");
     } else if (g_save_status == 2) {
-        ptr += sprintf(ptr, "\033[102;30m [+] SAVED \033[0m\033[92m Successfully saved to config.ini\033[0m\n");
+        ptr += sprintf(ptr, "\033[102;30m [+] SAVED \033[0m\033[92m Preset saved and set active.\033[0m\n");
+    } else if (g_save_status == 3) {
+        ptr += sprintf(ptr, "\033[106;30m Save As: [%s]\033[0m\n", g_save_input);
     } else {
-        ptr += sprintf(ptr, "\033[90mNAV:↕↔  ADJ:Ctrl+↕  MOD:Wheel  SAV:Ctrl+S  ESC:Exit\033[0m\n");
+        ptr += sprintf(ptr, "\033[90m↕↔:Nav  Ctrl+↕:Adj  Wheel:Mod  Ctrl+S:Save  Esc:Exit\033[0m\n");
     }
     
     ptr += sprintf(ptr, "\033[0J"); // Clear all leftover lines below this point to handle resize/toggle
