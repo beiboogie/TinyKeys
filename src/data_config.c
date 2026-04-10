@@ -19,6 +19,8 @@ float g_sustain = 1.0f;
 float g_release_time = 0.1f; // 100ms default
 float g_filter_cutoff_hz = 18000.0f;
 float g_filter_q = 0.707f;
+int g_pitch_drift = 0;
+float g_vol_drift = 0.0f;
 
 // Master Volume & Vibrato
 float g_master_volume = 1.0f;
@@ -119,6 +121,8 @@ ConfigEntry g_config_registry[] = {
     {"octave", &g_octave, CFG_INT, MENU_OCTAVE, -10.0f, 10.0f, 1.0f},
     {"show_keyboard", &g_show_keyboard, CFG_BOOL, MENU_SHOW_KEYBOARD, 0.0f, 1.0f, 1.0f},
     {"master_volume", &g_master_volume, CFG_FLOAT, MENU_MASTER_VOLUME, 0.0f, 2.0f, 0.05f},
+    {"pitch_drift", &g_pitch_drift, CFG_INT, MENU_PITCH_DRIFT, 0.0f, 5.0f, 1.0f},
+    {"vol_drift", &g_vol_drift, CFG_FLOAT, MENU_VOL_DRIFT, 0.0f, 10.0f, 0.5f},
     {"attack_time", &g_attack, CFG_FLOAT, MENU_ATTACK, 0.0f, 2.0f, 0.01f},
     {"decay_time", &g_decay, CFG_FLOAT, MENU_DECAY, 0.0f, 10.0f, 0.25f},
     {"sustain_level", &g_sustain, CFG_FLOAT, MENU_SUSTAIN, 0.0f, 1.0f, 0.05f},
@@ -153,6 +157,10 @@ static const MenuOption g_global_menu_items[] = {
     MENU_SEMITONE, MENU_OCTAVE, MENU_SHOW_KEYBOARD, MENU_MASTER_VOLUME
 };
 
+static const MenuOption g_dyn_menu_items[] = {
+    MENU_PITCH_DRIFT, MENU_VOL_DRIFT
+};
+
 static const MenuOption g_adsr_menu_items[] = {
     MENU_ATTACK, MENU_DECAY, MENU_SUSTAIN, MENU_RELEASE, MENU_FILTER_CUTOFF, MENU_FILTER_Q
 };
@@ -176,6 +184,7 @@ static const MenuOption g_wheel_menu_items[] = {
 
 const MenuRow g_menu_layout[] = {
     {"Global", g_global_menu_items, sizeof(g_global_menu_items) / sizeof(g_global_menu_items[0])},
+    {"DYN", g_dyn_menu_items, sizeof(g_dyn_menu_items) / sizeof(g_dyn_menu_items[0])},
     {"SYNTH", g_adsr_menu_items, sizeof(g_adsr_menu_items) / sizeof(g_adsr_menu_items[0])},
     {"\"VB-2\":", g_vib_menu_items, sizeof(g_vib_menu_items) / sizeof(g_vib_menu_items[0])},
     {"\"Trelicopter\":", g_trem_menu_items, sizeof(g_trem_menu_items) / sizeof(g_trem_menu_items[0])},

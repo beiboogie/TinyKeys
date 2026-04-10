@@ -38,6 +38,8 @@ typedef enum {
     MENU_WHEEL_ASSIGN,
     MENU_WHEEL_MODE,
     MENU_WHEEL_SENSE,
+    MENU_PITCH_DRIFT,
+    MENU_VOL_DRIFT,
     MENU_OPTION_COUNT,
     MENU_OPTION_NONE = -1
 } MenuOption;
@@ -91,6 +93,8 @@ extern float g_sustain;
 extern float g_release_time;
 extern float g_filter_cutoff_hz;
 extern float g_filter_q;
+extern int g_pitch_drift;
+extern float g_vol_drift;
 
 // Master Volume & Vibrato
 extern float g_master_volume;

@@ -60,6 +60,22 @@ static void append_menu_option(char** ptr, MenuOption option) {
                 append_plain_option(ptr, "Master: ", value_buf);
             }
             break;
+        case MENU_PITCH_DRIFT:
+            sprintf(value_buf, "%dc", g_pitch_drift);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "P-Drift:", value_buf);
+            } else {
+                append_plain_option(ptr, "P-Drift:", value_buf);
+            }
+            break;
+        case MENU_VOL_DRIFT:
+            sprintf(value_buf, "%.1f%%", g_vol_drift);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "V-Drift:", value_buf);
+            } else {
+                append_plain_option(ptr, "V-Drift:", value_buf);
+            }
+            break;
         case MENU_ATTACK:
             sprintf(value_buf, "%.2fs", g_attack);
             if (is_selected(option)) {

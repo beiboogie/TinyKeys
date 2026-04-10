@@ -2,6 +2,8 @@
 #include "../include/data_config.h"
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
+#include <time.h>
 
 #define TSF_IMPLEMENTATION
 #include "../thirdparty/tsf.h"
@@ -32,6 +34,7 @@ static bool g_synth_lpf_ready = false;
 
 #define AUDIO_SAMPLE_RATE 44100
 #define FILTER_MIN_Q 0.2f
+#define NOTE_CHANNEL_COUNT 128
 
 // Convert Hz to cents
 static int hz_to_cents(float hz) {
@@ -219,6 +222,7 @@ static void AudioCallback(ma_device* pDevice, void* pOutput, const void* pInput,
 
 bool init_audio_engine(void) {
     InitializeCriticalSection(&g_audio_cs);
+    srand((unsigned int)time(NULL));
     
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
     deviceConfig.playback.format = ma_format_s16;
@@ -236,6 +240,12 @@ bool init_audio_engine(void) {
         fprintf(stderr, "Could not load SoundFont\n");
         ma_device_uninit(&device);
         return false;
+    }
+
+    for (int channel = 0; channel < NOTE_CHANNEL_COUNT; channel++) {
+        tsf_channel_set_presetindex(g_TinySoundFont, channel, 0);
+        tsf_channel_set_volume(g_TinySoundFont, channel, 1.0f);
+        tsf_channel_set_tuning(g_TinySoundFont, channel, 0.0f);
     }
     
     tsf_set_output(g_TinySoundFont, TSF_STEREO_INTERLEAVED, (int)deviceConfig.sampleRate, 0);
@@ -262,13 +272,31 @@ void cleanup_audio_engine(void) {
 }
 
 void note_on(int actual_note) {
+    float pitch_offset_semitones = 0.0f;
+    float velocity = 1.0f;
+
+    if (g_pitch_drift > 0) {
+        float max_cents = (float)g_pitch_drift;
+        float random_unit = ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+        pitch_offset_semitones = (random_unit * max_cents) / 100.0f;
+    }
+
+    if (g_vol_drift > 0.0f) {
+        float drift_ratio = g_vol_drift / 100.0f;
+        float random_unit = ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+        velocity = 1.0f + random_unit * drift_ratio;
+        if (velocity < 0.0f) velocity = 0.0f;
+    }
+
     EnterCriticalSection(&g_audio_cs);
-    tsf_note_on(g_TinySoundFont, 0, actual_note, 1.0f);
+    tsf_channel_set_tuning(g_TinySoundFont, actual_note, pitch_offset_semitones);
+    tsf_channel_set_volume(g_TinySoundFont, actual_note, velocity);
+    tsf_channel_note_on(g_TinySoundFont, actual_note, actual_note, 1.0f);
     LeaveCriticalSection(&g_audio_cs);
 }
 
 void note_off(int actual_note) {
     EnterCriticalSection(&g_audio_cs);
-    tsf_note_off(g_TinySoundFont, 0, actual_note);
+    tsf_channel_note_off(g_TinySoundFont, actual_note, actual_note);
     LeaveCriticalSection(&g_audio_cs);
 }
