@@ -17,14 +17,6 @@ static void append_reversed_option(char** ptr, const char* label_bg, const char*
     *ptr += sprintf(*ptr, "%s\033[30m%s\033[47;30m%s\033[0m", label_bg, label, value);
 }
 
-static void append_neutral_option(char** ptr, MenuOption option, const char* text) {
-    if (is_selected(option)) {
-        *ptr += sprintf(*ptr, "\033[7m%s\033[0m", text);
-    } else {
-        *ptr += sprintf(*ptr, "%s", text);
-    }
-}
-
 static void append_colored_option(char** ptr, MenuOption option, const char* color_fg, const char* color_bg, const char* label, const char* value) {
     if (is_selected(option)) {
         append_reversed_option(ptr, color_bg, label, value);
@@ -70,7 +62,6 @@ static void append_menu_option(char** ptr, MenuOption option) {
             break;
         case MENU_ATTACK:
             sprintf(value_buf, "%.2fs", g_attack);
-            append_neutral_option(ptr, option, "");
             if (is_selected(option)) {
                 append_reversed_option(ptr, "\033[47m", "A:", value_buf);
             } else {
@@ -99,6 +90,22 @@ static void append_menu_option(char** ptr, MenuOption option) {
                 append_reversed_option(ptr, "\033[47m", "R:", value_buf);
             } else {
                 append_plain_option(ptr, "R:", value_buf);
+            }
+            break;
+        case MENU_FILTER_CUTOFF:
+            sprintf(value_buf, "%.0fHz", g_filter_cutoff_hz);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "LP:", value_buf);
+            } else {
+                append_plain_option(ptr, "LP:", value_buf);
+            }
+            break;
+        case MENU_FILTER_Q:
+            sprintf(value_buf, "%.2f", g_filter_q);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Q:", value_buf);
+            } else {
+                append_plain_option(ptr, "Q:", value_buf);
             }
             break;
         case MENU_VIB_SPEED:
@@ -151,6 +158,28 @@ static void append_menu_option(char** ptr, MenuOption option) {
         case MENU_DELAY_MOD_DEPTH:
             sprintf(value_buf, "%dc", g_delay_mod_dep);
             append_colored_option(ptr, option, "\033[92m", "\033[102m", "Dp:", value_buf);
+            break;
+        case MENU_WHEEL_ASSIGN:
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Assign:", get_wheel_assignment_label());
+            } else {
+                append_plain_option(ptr, "Assign:", get_wheel_assignment_label());
+            }
+            break;
+        case MENU_WHEEL_MODE:
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Mode:", get_wheel_mode_label());
+            } else {
+                append_plain_option(ptr, "Mode:", get_wheel_mode_label());
+            }
+            break;
+        case MENU_WHEEL_SENSE:
+            sprintf(value_buf, "%.2f", g_wheel_sense);
+            if (is_selected(option)) {
+                append_reversed_option(ptr, "\033[47m", "Sense:", value_buf);
+            } else {
+                append_plain_option(ptr, "Sense:", value_buf);
+            }
             break;
         case MENU_OPTION_COUNT:
         case MENU_OPTION_NONE:
@@ -303,6 +332,8 @@ void print_tui() {
         } else {
             ptr += sprintf(ptr, "\033[90m[          SPACE          ]\033[0m\n");
         }
+    } else {
+        ptr += sprintf(ptr, "\033[0J");
     }
     
     ptr += sprintf(ptr, "\n\n\033[2K");
@@ -311,7 +342,7 @@ void print_tui() {
     } else if (g_save_status == 2) {
         ptr += sprintf(ptr, "\033[102;30m [+] SAVED \033[0m\033[92m Successfully saved to config.ini\033[0m\n");
     } else {
-        ptr += sprintf(ptr, "\033[90mArrows move selection. CTRL+UP/DOWN adjusts. CTRL+S saves. ESC exits.\033[0m\n");
+        ptr += sprintf(ptr, "\033[90mNAV:↕↔  ADJ:Ctrl+↕  MOD:Wheel  SAV:Ctrl+S  ESC:Exit\033[0m\n");
     }
     
     ptr += sprintf(ptr, "\033[0J"); // Clear all leftover lines below this point to handle resize/toggle

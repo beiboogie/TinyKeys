@@ -20,6 +20,8 @@ typedef enum {
     MENU_DECAY,
     MENU_SUSTAIN,
     MENU_RELEASE,
+    MENU_FILTER_CUTOFF,
+    MENU_FILTER_Q,
     MENU_VIB_SPEED,
     MENU_VIB_DEPTH,
     MENU_VIB_MODE,
@@ -33,9 +35,26 @@ typedef enum {
     MENU_DELAY_SAT,
     MENU_DELAY_MOD_SPEED,
     MENU_DELAY_MOD_DEPTH,
+    MENU_WHEEL_ASSIGN,
+    MENU_WHEEL_MODE,
+    MENU_WHEEL_SENSE,
     MENU_OPTION_COUNT,
     MENU_OPTION_NONE = -1
 } MenuOption;
+
+typedef enum {
+    WHEEL_ASSIGN_NONE = 0,
+    WHEEL_ASSIGN_ANY,
+    WHEEL_ASSIGN_MASTER,
+    WHEEL_ASSIGN_CUTOFF,
+    WHEEL_ASSIGN_COUNT
+} WheelAssignment;
+
+typedef enum {
+    WHEEL_MODE_MOUSE = 0,
+    WHEEL_MODE_PAD,
+    WHEEL_MODE_COUNT
+} WheelMode;
 
 typedef struct {
     const char* key;
@@ -53,6 +72,11 @@ typedef struct {
     int item_count;
 } MenuRow;
 
+typedef struct {
+    const char* label;
+    MenuOption target_option;
+} WheelAssignmentOption;
+
 // Menu state
 extern int g_semitone;
 extern int g_octave;
@@ -65,6 +89,8 @@ extern float g_attack;
 extern float g_decay;
 extern float g_sustain;
 extern float g_release_time;
+extern float g_filter_cutoff_hz;
+extern float g_filter_q;
 
 // Master Volume & Vibrato
 extern float g_master_volume;
@@ -112,6 +138,11 @@ extern ConfigEntry g_config_registry[];
 extern const int g_registry_size;
 extern const MenuRow g_menu_layout[];
 extern const int g_menu_layout_size;
+extern const WheelAssignmentOption g_wheel_assignment_options[];
+extern const int g_wheel_assignment_option_count;
+extern int g_wheel_assign;
+extern int g_wheel_mode;
+extern float g_wheel_sense;
 
 bool load_config(const char* filename);
 bool save_config(const char* filename);
@@ -120,5 +151,8 @@ int parse_note(const char* note_str);
 void get_note_string(int midi_note, char* buf);
 ConfigEntry* get_menu_config_entry(MenuOption option);
 MenuOption get_current_menu_option(void);
+MenuOption get_wheel_target_option(void);
+const char* get_wheel_assignment_label(void);
+const char* get_wheel_mode_label(void);
 
 #endif // DATA_CONFIG_H

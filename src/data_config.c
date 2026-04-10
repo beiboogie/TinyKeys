@@ -17,6 +17,8 @@ float g_attack = 0.0f;
 float g_decay = 0.0f;
 float g_sustain = 1.0f;
 float g_release_time = 0.1f; // 100ms default
+float g_filter_cutoff_hz = 18000.0f;
+float g_filter_q = 0.707f;
 
 // Master Volume & Vibrato
 float g_master_volume = 1.0f;
@@ -45,6 +47,10 @@ float g_delay_mod_spd = 0.3f;
 int g_delay_mod_dep = 10;
 bool g_delay_enabled = false;
 float g_delay_lfo_phase = 0.0f;
+
+int g_wheel_assign = WHEEL_ASSIGN_NONE;
+int g_wheel_mode = WHEEL_MODE_MOUSE;
+float g_wheel_sense = 1.0f;
 
 // Key layout definitions
 const int num_keys[4] = {13, 12, 11, 10};
@@ -117,6 +123,8 @@ ConfigEntry g_config_registry[] = {
     {"decay_time", &g_decay, CFG_FLOAT, MENU_DECAY, 0.0f, 10.0f, 0.25f},
     {"sustain_level", &g_sustain, CFG_FLOAT, MENU_SUSTAIN, 0.0f, 1.0f, 0.05f},
     {"release_time_ms", &g_release_time, CFG_FLOAT_MS, MENU_RELEASE, 0.0f, 5.0f, 0.25f},
+    {"filter_cutoff_hz", &g_filter_cutoff_hz, CFG_FLOAT, MENU_FILTER_CUTOFF, 40.0f, 18000.0f, 0.08f},
+    {"filter_q", &g_filter_q, CFG_FLOAT, MENU_FILTER_Q, 0.2f, 10.0f, 0.1f},
     {"vib_speed", &g_vib_speed, CFG_FLOAT, MENU_VIB_SPEED, 0.0f, 15.0f, 0.1f},
     {"vib_depth", &g_vib_depth, CFG_INT, MENU_VIB_DEPTH, 0.0f, 100.0f, 2.0f},
     {"vib_mode", &g_vib_mode, CFG_BOOL, MENU_VIB_MODE, 0.0f, 1.0f, 1.0f},
@@ -130,6 +138,9 @@ ConfigEntry g_config_registry[] = {
     {"delay_sat", &g_delay_sat, CFG_INT, MENU_DELAY_SAT, 0.0f, 100.0f, 10.0f},
     {"delay_mod_spd", &g_delay_mod_spd, CFG_FLOAT, MENU_DELAY_MOD_SPEED, 0.0f, 15.0f, 0.1f},
     {"delay_mod_dep", &g_delay_mod_dep, CFG_INT, MENU_DELAY_MOD_DEPTH, 0.0f, 100.0f, 1.0f},
+    {"wheel_assign", &g_wheel_assign, CFG_INT, MENU_WHEEL_ASSIGN, 0.0f, (float)(WHEEL_ASSIGN_COUNT - 1), 1.0f},
+    {"wheel_mode", &g_wheel_mode, CFG_INT, MENU_WHEEL_MODE, 0.0f, (float)(WHEEL_MODE_COUNT - 1), 1.0f},
+    {"wheel_sense", &g_wheel_sense, CFG_FLOAT, MENU_WHEEL_SENSE, 0.25f, 8.0f, 0.25f},
     {"row0_start", &row_starts[0], CFG_NOTE_STRING, MENU_OPTION_NONE, 0.0f, 0.0f, 0.0f},
     {"row1_start", &row_starts[1], CFG_NOTE_STRING, MENU_OPTION_NONE, 0.0f, 0.0f, 0.0f},
     {"row2_start", &row_starts[2], CFG_NOTE_STRING, MENU_OPTION_NONE, 0.0f, 0.0f, 0.0f},
@@ -143,7 +154,7 @@ static const MenuOption g_global_menu_items[] = {
 };
 
 static const MenuOption g_adsr_menu_items[] = {
-    MENU_ATTACK, MENU_DECAY, MENU_SUSTAIN, MENU_RELEASE
+    MENU_ATTACK, MENU_DECAY, MENU_SUSTAIN, MENU_RELEASE, MENU_FILTER_CUTOFF, MENU_FILTER_Q
 };
 
 static const MenuOption g_vib_menu_items[] = {
@@ -159,15 +170,34 @@ static const MenuOption g_echo_menu_items[] = {
     MENU_DELAY_SAT, MENU_DELAY_MOD_SPEED, MENU_DELAY_MOD_DEPTH
 };
 
+static const MenuOption g_wheel_menu_items[] = {
+    MENU_WHEEL_ASSIGN, MENU_WHEEL_MODE, MENU_WHEEL_SENSE
+};
+
 const MenuRow g_menu_layout[] = {
     {"Global", g_global_menu_items, sizeof(g_global_menu_items) / sizeof(g_global_menu_items[0])},
-    {"ADSR", g_adsr_menu_items, sizeof(g_adsr_menu_items) / sizeof(g_adsr_menu_items[0])},
+    {"SYNTH", g_adsr_menu_items, sizeof(g_adsr_menu_items) / sizeof(g_adsr_menu_items[0])},
     {"\"VB-2\":", g_vib_menu_items, sizeof(g_vib_menu_items) / sizeof(g_vib_menu_items[0])},
     {"\"Trelicopter\":", g_trem_menu_items, sizeof(g_trem_menu_items) / sizeof(g_trem_menu_items[0])},
-    {"\"RE-20\":", g_echo_menu_items, sizeof(g_echo_menu_items) / sizeof(g_echo_menu_items[0])}
+    {"\"RE-20\":", g_echo_menu_items, sizeof(g_echo_menu_items) / sizeof(g_echo_menu_items[0])},
+    {"Wheel", g_wheel_menu_items, sizeof(g_wheel_menu_items) / sizeof(g_wheel_menu_items[0])}
 };
 
 const int g_menu_layout_size = sizeof(g_menu_layout) / sizeof(g_menu_layout[0]);
+
+const WheelAssignmentOption g_wheel_assignment_options[] = {
+    {"None", MENU_OPTION_NONE},
+    {"Any", MENU_OPTION_COUNT},
+    {"Master", MENU_MASTER_VOLUME},
+    {"Cutoff", MENU_FILTER_CUTOFF}
+};
+
+const int g_wheel_assignment_option_count = sizeof(g_wheel_assignment_options) / sizeof(g_wheel_assignment_options[0]);
+
+static const char* g_wheel_mode_labels[] = {
+    "Mouse",
+    "Pad"
+};
 
 ConfigEntry* get_menu_config_entry(MenuOption option) {
     for (int i = 0; i < g_registry_size; i++) {
@@ -182,6 +212,27 @@ MenuOption get_current_menu_option(void) {
     if (g_current_row < 0 || g_current_row >= g_menu_layout_size) return MENU_OPTION_NONE;
     if (g_current_col < 0 || g_current_col >= g_menu_layout[g_current_row].item_count) return MENU_OPTION_NONE;
     return g_menu_layout[g_current_row].item_enums[g_current_col];
+}
+
+MenuOption get_wheel_target_option(void) {
+    if (g_wheel_assign < 0 || g_wheel_assign >= g_wheel_assignment_option_count) {
+        return MENU_OPTION_NONE;
+    }
+    return g_wheel_assignment_options[g_wheel_assign].target_option;
+}
+
+const char* get_wheel_assignment_label(void) {
+    if (g_wheel_assign < 0 || g_wheel_assign >= g_wheel_assignment_option_count) {
+        return "None";
+    }
+    return g_wheel_assignment_options[g_wheel_assign].label;
+}
+
+const char* get_wheel_mode_label(void) {
+    if (g_wheel_mode < 0 || g_wheel_mode >= WHEEL_MODE_COUNT) {
+        return "Mouse";
+    }
+    return g_wheel_mode_labels[g_wheel_mode];
 }
 
 // Load config file

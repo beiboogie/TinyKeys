@@ -27,11 +27,41 @@ const static unsigned char MinimalSoundFont[] = {
 tsf* g_TinySoundFont = NULL;
 CRITICAL_SECTION g_audio_cs;
 static ma_device device;
+static ma_lpf2 g_synth_lpf;
+static bool g_synth_lpf_ready = false;
+
+#define AUDIO_SAMPLE_RATE 44100
+#define FILTER_MIN_Q 0.2f
 
 // Convert Hz to cents
 static int hz_to_cents(float hz) {
     if (hz <= 0.001f) return -12000;
     return (int)(1200.0f * (logf(hz / 8.176f) / logf(2.0f)));
+}
+
+static float clampf(float value, float min_value, float max_value) {
+    if (value < min_value) return min_value;
+    if (value > max_value) return max_value;
+    return value;
+}
+
+static void refresh_synth_filter(void) {
+    ma_lpf2_config filter_config = ma_lpf2_config_init(
+        ma_format_s16,
+        2,
+        AUDIO_SAMPLE_RATE,
+        clampf(g_filter_cutoff_hz, 40.0f, 18000.0f),
+        clampf(g_filter_q, FILTER_MIN_Q, 10.0f)
+    );
+
+    if (!g_synth_lpf_ready) {
+        if (ma_lpf2_init(&filter_config, NULL, &g_synth_lpf) == MA_SUCCESS) {
+            g_synth_lpf_ready = true;
+        }
+        return;
+    }
+
+    ma_lpf2_reinit(&filter_config, &g_synth_lpf);
 }
 
 // Update Synth Parameters (ADSR, Vibrato, Volume)
@@ -50,7 +80,8 @@ void update_synth_params() {
             g_TinySoundFont->presets[i].regions[j].vibLfoToPitch = (int)effective_depth;
         }
     }
-    tsf_set_volume(g_TinySoundFont, g_master_volume);
+    tsf_set_volume(g_TinySoundFont, 1.0f);
+    refresh_synth_filter();
     LeaveCriticalSection(&g_audio_cs);
 }
 
@@ -58,10 +89,13 @@ void update_synth_params() {
 static void AudioCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
     EnterCriticalSection(&g_audio_cs);
     tsf_render_short(g_TinySoundFont, (short*)pOutput, (int)frameCount, 0);
+    if (g_synth_lpf_ready) {
+        ma_lpf2_process_pcm_frames(&g_synth_lpf, pOutput, pOutput, frameCount);
+    }
     
     if (g_trem_enabled && g_trem_depth > 0) {
         short* samples = (short*)pOutput;
-        float phase_inc = g_trem_speed / 44100.0f;
+        float phase_inc = g_trem_speed / AUDIO_SAMPLE_RATE;
         float depth_f = g_trem_depth / 100.0f;
         float B = g_trem_bias / 100.0f;
         if (B < 0.01f) B = 0.01f;
@@ -86,15 +120,15 @@ static void AudioCallback(ma_device* pDevice, void* pOutput, const void* pInput,
             if (g_trem_phase >= 1.0f) g_trem_phase -= 1.0f;
         }
     } else {
-        g_trem_phase += (g_trem_speed / 44100.0f) * frameCount;
+        g_trem_phase += (g_trem_speed / AUDIO_SAMPLE_RATE) * frameCount;
         g_trem_phase = fmodf(g_trem_phase, 1.0f);
     }
     
     // Tape Echo Processing
     if (g_delay_enabled) {
         short* samples = (short*)pOutput;
-        float phase_inc = g_delay_mod_spd / 44100.0f;
-        float base_delay_samples = g_delay_time * 44100.0f;
+        float phase_inc = g_delay_mod_spd / AUDIO_SAMPLE_RATE;
+        float base_delay_samples = g_delay_time * AUDIO_SAMPLE_RATE;
         float mod_depth_samples = (g_delay_mod_dep / 1200.0f) * base_delay_samples; // Approximate cents to samples delay modulation
         
         float fb_gain = g_delay_fb / 100.0f;
@@ -158,7 +192,7 @@ static void AudioCallback(ma_device* pDevice, void* pOutput, const void* pInput,
         }
     } else {
         // Keep LFO running and buffer writing even when bypassed so turning it on is smooth
-        float phase_inc = g_delay_mod_spd / 44100.0f;
+        float phase_inc = g_delay_mod_spd / AUDIO_SAMPLE_RATE;
         short* samples = (short*)pOutput;
         for (ma_uint32 i = 0; i < frameCount; i++) {
             g_delay_buffer[g_delay_write_ptr] = samples[i*2] / 32768.0f;
@@ -167,6 +201,16 @@ static void AudioCallback(ma_device* pDevice, void* pOutput, const void* pInput,
             
             g_delay_lfo_phase += phase_inc;
             if (g_delay_lfo_phase >= 1.0f) g_delay_lfo_phase -= 1.0f;
+        }
+    }
+
+    if (g_master_volume != 1.0f) {
+        short* samples = (short*)pOutput;
+        for (ma_uint32 i = 0; i < frameCount * 2; i++) {
+            float scaled = samples[i] * g_master_volume;
+            if (scaled > 32767.0f) scaled = 32767.0f;
+            if (scaled < -32768.0f) scaled = -32768.0f;
+            samples[i] = (short)scaled;
         }
     }
     
@@ -179,7 +223,7 @@ bool init_audio_engine(void) {
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
     deviceConfig.playback.format = ma_format_s16;
     deviceConfig.playback.channels = 2;
-    deviceConfig.sampleRate = 44100;
+    deviceConfig.sampleRate = AUDIO_SAMPLE_RATE;
     deviceConfig.dataCallback = AudioCallback;
 
     if (ma_device_init(NULL, &deviceConfig, &device) != MA_SUCCESS) {
@@ -194,9 +238,8 @@ bool init_audio_engine(void) {
         return false;
     }
     
-    update_synth_params();
-
     tsf_set_output(g_TinySoundFont, TSF_STEREO_INTERLEAVED, (int)deviceConfig.sampleRate, 0);
+    update_synth_params();
 
     if (ma_device_start(&device) != MA_SUCCESS) {
         fprintf(stderr, "Failed to start playback device.\n");
@@ -211,6 +254,10 @@ bool init_audio_engine(void) {
 void cleanup_audio_engine(void) {
     ma_device_uninit(&device);
     if (g_TinySoundFont) tsf_close(g_TinySoundFont);
+    if (g_synth_lpf_ready) {
+        ma_lpf2_uninit(&g_synth_lpf, NULL);
+        g_synth_lpf_ready = false;
+    }
     DeleteCriticalSection(&g_audio_cs);
 }
 

@@ -22,10 +22,17 @@ You only need your QWERTY keyboard to start playing. The layout is designed to m
 
 *   `[↑][↓][←][→]`: **Select Parameter / 菜单导航**
 *   `[CTRL] + [↑]/[↓]`: **Adjust Value / 调节参数值**
+*   `[Mouse Wheel]`: **Wheel Control / 滚轮控制**
 *   `[CTRL] + [S]`: **Save Preset / 保存预设**
 *   `[L-SHIFT]`: **Tremolo Switch / Tremolo音量颤音开关**
 *   `[L-ALT]`: **Tape Echo Switch / 磁带延迟开关**
 *   `[SPACE]`: **Vibrato Switch / Vibrato音高颤音开关**
+
+When `Wheel: Assign` is set to `None`, the mouse wheel controls the currently selected menu item.  
+当 `Wheel: Assign` 设为 `None` 时，鼠标滚轮会控制当前选中的菜单项。  
+
+When `Wheel: Assign` is set to `Master` or `Cutoff`, the mouse wheel always controls that target first, regardless of cursor position.  
+当 `Wheel: Assign` 设为 `Master` 或 `Cutoff` 时，无论光标停在哪个菜单项上，鼠标滚轮都会优先控制该目标。  
 
 
 ### Note Layout / 音符排列规律
@@ -56,12 +63,12 @@ The Settings Menu allows you to sculpt your tone and adjust global behaviors. Us
 | `Semitone` | Transpose the entire keyboard by semitones. | 半音移调（移调整个键盘） |
 | `Octave` | Transpose the entire keyboard by octaves. | 八度移调 |
 | `ShowKbd` | Toggle the visual keyboard UI on/off to save screen space. | 界面虚拟键盘显示开关 |
-| `Master` | Master output volume (0% - 200%). Watch out for clipping! | 主输出音量（注意防爆音） |
+| `Master` | Master output volume (0% - 200%). Applied at the final output stage, so sustained notes also respond in real time. | 主输出音量（在最终输出级生效，持续音也会实时响应） |
 
-### ADSR Envelope / 包络线发生器
+### SYNTH / 合成器核心层
 
-Shapes the volume contour of every note you play.
-塑造每个音符的音量轮廓。
+Shapes the core tone before modulation and delay. This row combines the ADSR envelope with a resonant low-pass filter.
+这一行负责调制和延迟之前的核心音色塑形，将 ADSR 包络与共振低通滤波器合并在一起。
 
 | Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
 | :--- | :--- | :--- |
@@ -69,6 +76,8 @@ Shapes the volume contour of every note you play.
 | `D` (Decay) | Time taken to drop from peak volume to sustain level. | 衰减时间（从最大音量降至延音电平的时间） |
 | `S` (Sustain) | The volume level held while the key remains pressed. | 延音电平（按住按键时保持的音量大小） |
 | `R` (Release) | Time taken for the sound to fade out after key release. | 释音时间（松开按键后声音淡出的时间） |
+| `LP` (Cutoff) | Resonant low-pass cutoff frequency. Uses a logarithmic response for smoother low-end sweeps. | 低通截止频率（使用对数曲线，低频扫动更细腻） |
+| `Q` | Resonance amount of the low-pass filter. Higher values make the cutoff peak more pronounced. | 低通滤波器共振强度（值越高，截止点峰值越明显） |
 
 ### "VB-2" Vibrato / 音高颤音（揉弦）效果器
 
@@ -106,6 +115,16 @@ An analog-tape-style delay with saturation and wow/flutter. Activated by the `[L
 | `Sa` (Saturation)| Tape saturation/distortion on the delayed signal. | 磁带饱和度（为回声添加温暖的模拟失真） |
 | `Sp` (LFO Speed) | Speed of the tape mechanism modulation (Wow & Flutter). | 磁带抖动速度（LFO频率） |
 | `Dp` (LFO Depth) | Intensity of the tape mechanism modulation. | 磁带抖动深度（模拟电机不稳定的音高偏移） |
+
+### Wheel / 滚轮控制
+
+Adds a performance layer for live gestures without changing the current menu focus.
+提供一个独立的现场控制层，让您在不切换当前菜单焦点的情况下进行实时调制。
+
+| Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
+| :--- | :--- | :--- |
+| `Assign` | Selects which parameter the mouse wheel controls. Current built-in targets are `None`, `Master`, and `Cutoff`. | 指定鼠标滚轮控制的参数，当前内置目标为 `None`、`Master`、`Cutoff` |
+| `Sense` | Scales wheel sensitivity to match different mice and DPI settings. | 调整滚轮灵敏度，以适配不同鼠标与滚轮分辨率 |
 
 ## 3. Preset Function / 预设功能
 

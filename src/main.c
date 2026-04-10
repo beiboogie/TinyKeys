@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 #include <windows.h>
 #include <mmsystem.h>
 
@@ -11,6 +12,9 @@
 
 bool g_running = true;
 
+#define MOUSE_WHEEL_STEP 120.0f
+#define MOUSE_INPUT_BATCH_SIZE 32
+
 static float clampf(float value, float min_value, float max_value) {
     if (value < min_value) return min_value;
     if (value > max_value) return max_value;
@@ -19,11 +23,12 @@ static float clampf(float value, float min_value, float max_value) {
 
 static bool menu_option_needs_synth_update(MenuOption option) {
     switch (option) {
-        case MENU_MASTER_VOLUME:
         case MENU_ATTACK:
         case MENU_DECAY:
         case MENU_SUSTAIN:
         case MENU_RELEASE:
+        case MENU_FILTER_CUTOFF:
+        case MENU_FILTER_Q:
         case MENU_VIB_SPEED:
         case MENU_VIB_DEPTH:
             return true;
@@ -32,7 +37,16 @@ static bool menu_option_needs_synth_update(MenuOption option) {
     }
 }
 
-static void adjust_menu_option(MenuOption option, int direction) {
+static float adjust_logarithmic_value(float current, float min_value, float max_value, float normalized_step) {
+    float safe_current = clampf(current, min_value, max_value);
+    float log_min = logf(min_value);
+    float log_max = logf(max_value);
+    float t = (logf(safe_current) - log_min) / (log_max - log_min);
+    t = clampf(t + normalized_step, 0.0f, 1.0f);
+    return expf(log_min + (log_max - log_min) * t);
+}
+
+static void adjust_menu_option(MenuOption option, float delta_units) {
     ConfigEntry* entry = get_menu_config_entry(option);
     if (!entry) return;
 
@@ -41,17 +55,42 @@ static void adjust_menu_option(MenuOption option, int direction) {
         case MENU_VIB_MODE:
             *(bool*)entry->var_ptr = !(*(bool*)entry->var_ptr);
             break;
+        case MENU_WHEEL_ASSIGN: {
+            int next_value = *(int*)entry->var_ptr + (delta_units > 0.0f ? 1 : -1);
+            if (next_value < 0) next_value = g_wheel_assignment_option_count - 1;
+            if (next_value >= g_wheel_assignment_option_count) next_value = 0;
+            *(int*)entry->var_ptr = next_value;
+            break;
+        }
+        case MENU_WHEEL_MODE: {
+            int next_value = *(int*)entry->var_ptr + (delta_units > 0.0f ? 1 : -1);
+            if (next_value < 0) next_value = WHEEL_MODE_COUNT - 1;
+            if (next_value >= WHEEL_MODE_COUNT) next_value = 0;
+            *(int*)entry->var_ptr = next_value;
+            break;
+        }
+        case MENU_FILTER_CUTOFF: {
+            float next_value = adjust_logarithmic_value(
+                *(float*)entry->var_ptr,
+                entry->min_value,
+                entry->max_value,
+                entry->step_value * delta_units
+            );
+            *(float*)entry->var_ptr = clampf(next_value, entry->min_value, entry->max_value);
+            break;
+        }
         default:
             switch (entry->type) {
                 case CFG_INT: {
-                    int next_value = *(int*)entry->var_ptr + (int)(entry->step_value * direction);
+                    int step_delta = (int)lroundf(entry->step_value * delta_units);
+                    int next_value = *(int*)entry->var_ptr + step_delta;
                     next_value = (int)clampf((float)next_value, entry->min_value, entry->max_value);
                     *(int*)entry->var_ptr = next_value;
                     break;
                 }
                 case CFG_FLOAT:
                 case CFG_FLOAT_MS: {
-                    float next_value = *(float*)entry->var_ptr + entry->step_value * direction;
+                    float next_value = *(float*)entry->var_ptr + entry->step_value * delta_units;
                     *(float*)entry->var_ptr = clampf(next_value, entry->min_value, entry->max_value);
                     break;
                 }
@@ -69,7 +108,59 @@ static void adjust_menu_option(MenuOption option, int direction) {
     }
 }
 
+static void process_mouse_wheel(HANDLE hIn) {
+    DWORD event_count = 0;
+    INPUT_RECORD records[MOUSE_INPUT_BATCH_SIZE];
+
+    if (!GetNumberOfConsoleInputEvents(hIn, &event_count) || event_count == 0) {
+        return;
+    }
+
+    while (event_count > 0) {
+        DWORD records_to_read = event_count > MOUSE_INPUT_BATCH_SIZE ? MOUSE_INPUT_BATCH_SIZE : event_count;
+        DWORD records_read = 0;
+        if (!ReadConsoleInput(hIn, records, records_to_read, &records_read) || records_read == 0) {
+            break;
+        }
+
+        for (DWORD i = 0; i < records_read; i++) {
+            INPUT_RECORD* record = &records[i];
+            if (record->EventType != MOUSE_EVENT) {
+                continue;
+            }
+
+            MOUSE_EVENT_RECORD mouse = record->Event.MouseEvent;
+            if (mouse.dwEventFlags != MOUSE_WHEELED) {
+                continue;
+            }
+
+            MenuOption target_option = get_wheel_target_option();
+            if (target_option == MENU_OPTION_COUNT) {
+                target_option = get_current_menu_option();
+            }
+            if (target_option == MENU_OPTION_NONE) {
+                continue;
+            }
+
+            short wheel_delta = (short)HIWORD(mouse.dwButtonState);
+            float wheel_steps = ((float)wheel_delta / MOUSE_WHEEL_STEP) * g_wheel_sense;
+            if (g_wheel_mode == WHEEL_MODE_PAD) {
+                wheel_steps = -wheel_steps;
+            }
+            if (wheel_steps != 0.0f) {
+                adjust_menu_option(target_option, wheel_steps);
+                print_tui();
+            }
+        }
+
+        if (!GetNumberOfConsoleInputEvents(hIn, &event_count)) {
+            break;
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
+    SetConsoleOutputCP(65001);
     // Enable ANSI escape codes on Windows and disable console echo/input
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD dwOutMode = 0;
@@ -79,8 +170,11 @@ int main(int argc, char *argv[]) {
     HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
     DWORD dwInMode = 0;
     GetConsoleMode(hIn, &dwInMode);
-    // Disable ENABLE_ECHO_INPUT and ENABLE_LINE_INPUT so keystrokes aren't printed to the terminal
-    SetConsoleMode(hIn, dwInMode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+    // Disable line editing, keep mouse events, and turn off quick edit so wheel input reaches the app.
+    DWORD desiredInMode = dwInMode;
+    desiredInMode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_QUICK_EDIT_MODE);
+    desiredInMode |= ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT;
+    SetConsoleMode(hIn, desiredInMode);
 
     // 1. Fallback load default config from possible locations
     if (!load_config("config.ini")) {
@@ -134,6 +228,7 @@ int main(int argc, char *argv[]) {
         }
         
         DWORD current_time = timeGetTime();
+        process_mouse_wheel(hIn);
         
         // Save preset handling
         bool is_ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
@@ -202,7 +297,7 @@ int main(int argc, char *argv[]) {
 
             if (trigger_up) {
                 if (is_ctrl_nav) {
-                    adjust_menu_option(get_current_menu_option(), 1);
+                    adjust_menu_option(get_current_menu_option(), 1.0f);
                 } else {
                     g_current_row--;
                     if (g_current_row < 0) g_current_row = g_menu_layout_size - 1;
@@ -214,7 +309,7 @@ int main(int argc, char *argv[]) {
             }
             if (trigger_down) {
                 if (is_ctrl_nav) {
-                    adjust_menu_option(get_current_menu_option(), -1);
+                    adjust_menu_option(get_current_menu_option(), -1.0f);
                 } else {
                     g_current_row++;
                     if (g_current_row >= g_menu_layout_size) g_current_row = 0;

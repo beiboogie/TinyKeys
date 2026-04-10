@@ -33,6 +33,7 @@ This project is built upon **TinySoundFont (tsf)** and **miniaudio**. Special th
 ### 🧪 Synthesis & Effects
 
 - **ADSR Envelope**: Fully adjustable Attack, Decay, Sustain, and Release.
+- **SYNTH Filter Layer**: Adds a resonant low-pass stage with `LP` (cutoff) and `Q` controls for musical sweep effects.
 - **Modulation**: Built-in Vibrato (with optional Rise time) and Tremolo effects.
 - **Tape Echo**: A high-quality Delay effect with adjustable feedback, saturation, and modulation.
 
@@ -41,6 +42,13 @@ This project is built upon **TinySoundFont (tsf)** and **miniaudio**. Special th
 - **Registry-Based System**: A robust internal data-driven architecture for managing parameters.
 - **Instant Persistence**: Save current parameters to a configuration file at any time.
 - **CLI Support**: Override settings or load specific presets directly via command-line arguments.
+- **Wheel Routing**: Mouse wheel input can control the selected parameter, or be assigned to `Master` / `Cutoff` with adjustable sensitivity.
+
+### 🎚 Performance Additions
+
+- **Post-FX Master Volume**: `Master` now works as a true output-stage gain, so held notes react immediately to volume changes.
+- **SYNTH Row**: The second settings row now combines `A, D, S, R, LP, Q` for faster tone shaping.
+- **Wheel Row**: A dedicated `Wheel` row provides `Assign` and `Sense` for live gesture control.
 
 ------
 
