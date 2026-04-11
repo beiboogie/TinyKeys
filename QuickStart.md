@@ -52,6 +52,7 @@ All other keys are dedicated to performance. The default mapping follows a stric
 | Setting / 设置项 | Explanation / 解释说明                    | Chinese / 中文释义                 |
 | -------------------- | --------------------------------------------- | -------------------------------------- |
 | `ShowKbd`            | Toggle the visual keyboard display.           | 显示/隐藏虚拟键盘动画                  |
+| `Gain`             | Fre-FX Gain.                         | ADSR后，效果器前的增益 |
 | `Master`             | Global output volume.                         | 全局输出音量（最后级增益）             |
 | `Preset`             | Switch between `.tkp` files in the directory. | 预设切换（自动识别目录下的 .tkp 文件） |
 
@@ -116,7 +117,7 @@ Adds a performance layer for live gestures without changing the current menu foc
 
 | Setting / 设置项 | Explanation / 解释说明 | Chinese / 中文释义 |
 | :--- | :--- | :--- |
-| `Assign` | Selects which parameter the mouse wheel controls. Current targets are `Any`,  `None`, `Master`, and `Cutoff`. | 指定鼠标滚轮控制的参数。可选目标包括`Any`、 `None`、`Master`、`Cutoff` |
+| `Assign` | Selects which parameter the mouse wheel controls. Current targets are `Any`,  `None`, `Gain`, `Vol`, and `Cutoff`. | 指定鼠标滚轮控制的参数。可选目标包括`Any`、 `None`、`Gain`、 `Vol`、`Cutoff` |
 | `Mode` | Toggles between `Mouse` and `Pad`. Switching to `Pad` reverses the scroll direction for a natural trackpad feel. | 切换 `Mouse` (鼠标) 或 `Pad` (触控板) 模式。后者会反转滚动方向以适配触控板逻辑 |
 | `Sense` | Scales wheel sensitivity to match different mice and DPI settings. | 调整滚轮灵敏度，以适配不同鼠标与滚轮分辨率 |
 

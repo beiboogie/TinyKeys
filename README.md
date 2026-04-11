@@ -42,7 +42,7 @@ This project is built upon **TinySoundFont (tsf)** and **miniaudio**. Special th
 - **Registry-Based System**: A robust internal data-driven architecture for managing parameters.
 - **Instant Persistence**: Save current parameters to a configuration file at any time.
 - **CLI Support**: Override settings or load specific presets directly via command-line arguments.
-- **Wheel Routing**: Mouse wheel input can control the selected parameter, or be assigned to `Master` / `Cutoff` with adjustable sensitivity.
+- **Wheel Routing**: Mouse wheel input can control the selected parameter, or be assigned to `Gain` / `Vol` / `Cutoff` with adjustable sensitivity.
 
 ### 🎚 Performance Additions
 
